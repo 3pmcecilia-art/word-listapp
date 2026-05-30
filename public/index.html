@@ -431,14 +431,76 @@
 /* ════════════════════════════════════════════════════
    데이터 유틸
 ═══════════════════════════════════════════════════ */
-const STORAGE_KEY = 'wordbook_data';
+/* ════════════════════════════════════════════════════
+   Supabase 설정
+═══════════════════════════════════════════════════ */
+const SB_URL = 'https://cuctknvvcovirkjkzatp.supabase.co';
+const SB_KEY = 'sb_publishable_I1Cu-BC7sg0T-ekj_-HMOA_IYun8ll2';
+const SB_HDR = {
+  'apikey': SB_KEY,
+  'Authorization': `Bearer ${SB_KEY}`,
+  'Content-Type': 'application/json',
+};
 
-function loadWords() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
+function toRow(w) {
+  return {
+    id: w.id, word: w.word, meaning: w.meaning,
+    example: w.example || '', done: w.done,
+    etymology: w.etymology || null,
+    created_at: w.createdAt, updated_at: w.updatedAt,
+  };
 }
-function saveWords(arr) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+function fromRow(r) {
+  return {
+    id: r.id, word: r.word, meaning: r.meaning,
+    example: r.example || '', done: r.done,
+    etymology: r.etymology || null,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+async function sbLoad() {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/word_results?select=*&order=word.asc`, { headers: SB_HDR });
+    if (!res.ok) throw new Error(await res.text());
+    return (await res.json()).map(fromRow);
+  } catch(e) { console.error('sbLoad 실패', e); return []; }
+}
+async function sbInsert(w) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/word_results`, {
+      method: 'POST',
+      headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(toRow(w)),
+    });
+  } catch(e) { console.error('sbInsert 실패', e); }
+}
+async function sbUpdate(w) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/word_results?id=eq.${w.id}`, {
+      method: 'PATCH',
+      headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ word: w.word, meaning: w.meaning, example: w.example || '',
+        done: w.done, etymology: w.etymology || null, updated_at: w.updatedAt }),
+    });
+  } catch(e) { console.error('sbUpdate 실패', e); }
+}
+async function sbDelete(id) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/word_results?id=eq.${id}`, {
+      method: 'DELETE', headers: SB_HDR,
+    });
+  } catch(e) { console.error('sbDelete 실패', e); }
+}
+async function sbInsertMany(arr) {
+  if (!arr.length) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/word_results`, {
+      method: 'POST',
+      headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(arr.map(toRow)),
+    });
+  } catch(e) { console.error('sbInsertMany 실패', e); }
 }
 
 /* ════════════════════════════════════════════════════
@@ -511,7 +573,7 @@ async function callOpenRouter(prompt, maxTokens = 800, model, signal) {
 /* ════════════════════════════════════════════════════
    앱 상태
 ═══════════════════════════════════════════════════ */
-let words       = loadWords();
+let words       = [];
 let filter      = 'all';
 let searchQuery = '';
 let sortOrder   = 'alpha';
@@ -703,7 +765,7 @@ function bindCard(id) {
     if (!w) return;
     w.done = e.target.checked;
     w.updatedAt = Date.now();
-    saveWords(words);
+    sbUpdate(w);
     card.classList.toggle('done', w.done);
     updateStatus();
   });
@@ -718,7 +780,7 @@ function bindCard(id) {
   card.querySelector('.btn-del').addEventListener('click', () => {
     if (!confirm('삭제할까요?')) return;
     words = words.filter(w => w.id !== id);
-    saveWords(words);
+    sbDelete(id);
     render();
     updateStatus();
   });
@@ -797,7 +859,7 @@ function commitEdit(id, card) {
     w.meaning   = newMeaning;
     w.example   = newExample;
     w.updatedAt = Date.now();
-    saveWords(words);
+    sbUpdate(w);
     render();
     updateStatus();
   }
@@ -914,7 +976,7 @@ async function analyzeEtymology(id, card) {
   if (etymResult) {
     w.etymology = etymResult.formula || etymResult;
     w.updatedAt = Date.now();
-    saveWords(words);
+    sbUpdate(w);
     renderEtymologyResult(etymPanel, etymResult);
     btnEtym.disabled = false;
     btnEtym.textContent = '닫기';
@@ -976,7 +1038,7 @@ async function fetchEtymologyBg(id) {
         const result = await callOpenRouter(bgPrompt, 2000, model);
         w.etymology = result.formula || result;
         w.updatedAt = Date.now();
-        saveWords(words);
+        sbUpdate(w);
         break;
       } catch (e) { console.warn(`[fetchEtymologyBg] ${model} 실패:`, e.message); }
     }
@@ -1022,15 +1084,16 @@ function validateAndAdd() {
 
   const newId     = crypto.randomUUID();
   const etymology = lookupData?.formula || inEtym.value.trim() || null;
-  words.unshift({
+  const newWord = {
     id: newId,
     word, meaning, example,
     done: false,
     etymology,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-  });
-  saveWords(words);
+  };
+  words.unshift(newWord);
+  sbInsert(newWord);
   lookupData = null;
 
   inWord.value    = '';
@@ -1089,7 +1152,7 @@ function applyImported(imported) {
   const existingIds = new Set(words.map(w => w.id));
   const newWords    = imported.filter(w => !existingIds.has(w.id));
   words = [...words, ...newWords];
-  saveWords(words);
+  sbInsertMany(newWords);
   render();
   updateStatus();
   importResult.textContent = `${newWords.length}개 단어를 가져왔습니다.`;
@@ -1260,9 +1323,12 @@ fileInput.addEventListener('change', () => {
 /* ════════════════════════════════════════════════════
    초기화
 ═══════════════════════════════════════════════════ */
-render();
-updateStatus();
-words.filter(w => !w.etymology).forEach(w => queueEtymology(w.id));
+(async () => {
+  words = await sbLoad();
+  render();
+  updateStatus();
+  words.filter(w => !w.etymology).forEach(w => queueEtymology(w.id));
+})();
 </script>
 </body>
 </html>
