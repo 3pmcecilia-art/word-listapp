@@ -96,7 +96,7 @@ http.createServer(async (req, res) => {
     return;
   }
 
-  const filePath = path.join(__dirname, req.url === '/' ? 'index.html' : req.url);
+  const filePath = path.join(__dirname, req.url === '/' ? 'public/index.html' : req.url);
   fs.readFile(filePath, (err, data) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(filePath);
