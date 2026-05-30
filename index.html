@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>단어 암기장</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ── 토큰 ──────────────────────────────────────────────── */
+    :root {
+      --c-primary:       #4f46e5;
+      --c-primary-hover: #4338ca;
+      --c-primary-light: #e0e7ff;
+      --c-success:       #10b981;
+      --c-danger:        #ef4444;
+      --c-danger-light:  #fee2e2;
+      --c-warning:       #f59e0b;
+
+      --c-bg:         #f8fafc;
+      --c-surface:    #ffffff;
+      --c-surface-2:  #f1f5f9;
+      --c-text:       #0f172a;
+      --c-text-muted: #64748b;
+      --c-text-light: #94a3b8;
+      --c-border:     #e2e8f0;
+
+      --r-sm: 6px;  --r-md: 10px;  --r-lg: 16px;  --r-full: 9999px;
+      --sp-xs: 4px; --sp-sm: 8px;  --sp-md: 16px;
+      --sp-lg: 24px; --sp-xl: 32px;
+
+      --fs-xs: 12px; --fs-sm: 14px; --fs-base: 16px;
+      --fs-lg: 18px; --fs-xl: 20px; --fs-2xl: 24px; --fs-3xl: 30px;
+
+      --fw-normal: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -1px rgba(0,0,0,.05);
+      --trans: .18s ease;
+    }
+
+    /* ── 리셋 ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: var(--fs-base); }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: var(--c-bg); color: var(--c-text);
+      line-height: 1.6; min-height: 100vh;
+    }
+
+    /* ── 레이아웃 ──────────────────────────────────────────── */
+    .wrap { max-width: 720px; margin: 0 auto; padding: var(--sp-xl) var(--sp-md); }
+
+
+    /* ── 헤더 ─────────────────────────────────────────────── */
+    .app-header { margin-bottom: var(--sp-xl); }
+    .app-title { font-size: var(--fs-3xl); font-weight: var(--fw-bold); margin-bottom: var(--sp-md); }
+    .app-title span { color: var(--c-primary); }
+
+    /* ── 상태 표시줄 ───────────────────────────────────────── */
+    .status-bar {
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-md) var(--sp-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .status-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-sm); }
+    .status-count { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+    .status-pct   { font-size: var(--fs-sm); color: var(--c-text-muted); }
+    .progress-track { height: 8px; background: var(--c-surface-2); border-radius: var(--r-full); overflow: hidden; }
+    .progress-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--c-primary), var(--c-success));
+      border-radius: var(--r-full); transition: width .5s ease;
+    }
+    .congrats { display: none; text-align: center; margin-top: var(--sp-sm); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-success); }
+    .congrats.show { display: block; }
+
+    /* ── 데이터 툴바 (내보내기 / 가져오기) ───────────────────── */
+    .data-bar {
+      display: flex; align-items: center; gap: var(--sp-sm);
+      margin-top: var(--sp-sm); flex-wrap: wrap;
+    }
+    .data-bar-label { font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--c-text-muted); flex-shrink: 0; }
+    .data-bar-btns  { display: flex; gap: var(--sp-xs); }
+    .import-result  { font-size: var(--fs-xs); font-weight: var(--fw-medium); }
+    .import-result.ok    { color: var(--c-success); }
+    .import-result.error { color: var(--c-danger); }
+
+    /* ── 추가 폼 ───────────────────────────────────────────── */
+    .add-form {
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-lg);
+      margin-bottom: var(--sp-lg); box-shadow: var(--shadow-sm);
+    }
+    .form-title { font-size: var(--fs-lg); font-weight: var(--fw-semibold); margin-bottom: var(--sp-md); }
+    .form-group { margin-bottom: var(--sp-md); }
+
+    label { display: block; font-size: var(--fs-sm); font-weight: var(--fw-medium); margin-bottom: var(--sp-xs); }
+    .req { color: var(--c-danger); margin-left: 2px; }
+    .opt { color: var(--c-text-light); font-weight: var(--fw-normal); font-size: var(--fs-xs); margin-left: 4px; }
+
+    input[type="text"], textarea {
+      width: 100%; padding: var(--sp-sm) var(--sp-md);
+      border: 1.5px solid var(--c-border); border-radius: var(--r-md);
+      font-size: var(--fs-base); font-family: inherit; color: var(--c-text);
+      background: var(--c-surface); outline: none; resize: vertical;
+      transition: border-color var(--trans), box-shadow var(--trans);
+    }
+    input[type="text"]:focus, textarea:focus {
+      border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-light);
+    }
+    input[type="text"].err, textarea.err {
+      border-color: var(--c-danger); box-shadow: 0 0 0 3px var(--c-danger-light);
+    }
+    textarea { min-height: 80px; }
+
+    .err-msg  { display: none; font-size: var(--fs-xs); color: var(--c-danger); font-weight: var(--fw-medium); margin-top: var(--sp-xs); }
+    .err-msg.show { display: block; }
+    .info-msg { font-size: var(--fs-xs); font-weight: var(--fw-medium); margin-top: var(--sp-xs); display: none; }
+    .info-msg.show  { display: block; }
+    .info-msg.error { color: var(--c-danger); }
+    .info-msg.warn  { color: var(--c-warning); }
+
+    .form-actions { display: flex; justify-content: flex-end; margin-top: var(--sp-md); }
+
+    .form-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-md); margin-bottom: var(--sp-md); }
+    .form-two-col .form-group { margin-bottom: 0; }
+
+    /* ── 버튼 ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: var(--sp-xs); padding: var(--sp-sm) var(--sp-lg);
+      border: none; border-radius: var(--r-md);
+      font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      transition: all var(--trans);
+    }
+    .btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-primary { background: var(--c-primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--c-primary-hover); }
+    .btn-success { background: var(--c-success); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: #059669; }
+    .btn-ghost { background: transparent; color: var(--c-text-muted); border: 1.5px solid var(--c-border); }
+    .btn-ghost:hover:not(:disabled) { background: var(--c-surface-2); color: var(--c-text); }
+    .btn-sm { padding: var(--sp-xs) var(--sp-sm); font-size: var(--fs-xs); }
+
+    .btn-icon {
+      padding: var(--sp-xs) var(--sp-sm); font-size: var(--fs-base);
+      border-radius: var(--r-sm); background: transparent; border: none;
+      cursor: pointer; color: var(--c-text-muted);
+      transition: all var(--trans); line-height: 1; font-family: inherit;
+    }
+    .btn-icon:hover:not(:disabled)     { background: var(--c-surface-2); color: var(--c-text); }
+    .btn-icon.del:hover:not(:disabled) { background: var(--c-danger-light); color: var(--c-danger); }
+    .btn-icon:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-etym { font-size: var(--fs-xs); font-weight: var(--fw-semibold); padding: 3px var(--sp-sm); border-radius: var(--r-sm); }
+    .btn-etym.cached { color: var(--c-primary); background: var(--c-primary-light); }
+
+    /* ── 필터 탭 ───────────────────────────────────────────── */
+    .filter-tabs {
+      display: flex; gap: var(--sp-xs); padding: var(--sp-xs);
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); margin-bottom: var(--sp-sm);
+      box-shadow: var(--shadow-sm);
+    }
+    .tab-btn {
+      flex: 1; padding: var(--sp-sm) var(--sp-md); border: none;
+      border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+      cursor: pointer; background: transparent; color: var(--c-text-muted);
+      font-family: inherit; transition: all var(--trans);
+    }
+    .tab-btn:hover { background: var(--c-surface-2); color: var(--c-text); }
+    .tab-btn.active { background: var(--c-primary); color: #fff; font-weight: var(--fw-semibold); }
+
+    /* ── 검색 + 정렬 툴바 ─────────────────────────────────── */
+    .toolbar {
+      display: flex; gap: var(--sp-sm); align-items: center;
+      margin-bottom: var(--sp-md);
+    }
+    .search-wrap { flex: 1; position: relative; display: flex; align-items: center; }
+    .search-wrap .ico {
+      position: absolute; left: 10px;
+      color: var(--c-text-muted); pointer-events: none; font-size: 15px; line-height: 1;
+    }
+    .search-wrap input[type="text"] {
+      padding-left: 32px; padding-right: 28px;
+    }
+    .btn-clear-search {
+      position: absolute; right: 6px;
+      background: none; border: none; cursor: pointer;
+      color: var(--c-text-muted); font-size: 13px; line-height: 1;
+      padding: 3px; border-radius: var(--r-sm);
+      transition: all var(--trans); display: none;
+    }
+    .btn-clear-search.show { display: block; }
+    .btn-clear-search:hover { background: var(--c-surface-2); color: var(--c-text); }
+
+    .sort-select {
+      padding: var(--sp-sm) var(--sp-md);
+      border: 1.5px solid var(--c-border); border-radius: var(--r-md);
+      font-size: var(--fs-sm); font-family: inherit; color: var(--c-text);
+      background: var(--c-surface); outline: none; cursor: pointer;
+      transition: border-color var(--trans); flex-shrink: 0;
+    }
+    .sort-select:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-light); }
+
+    /* ── 빈 상태 ───────────────────────────────────────────── */
+    .empty { text-align: center; padding: 48px var(--sp-lg); color: var(--c-text-muted); }
+    .empty-icon  { font-size: 48px; opacity: .5; margin-bottom: var(--sp-md); }
+    .empty-title { font-size: var(--fs-lg); font-weight: var(--fw-medium); margin-bottom: var(--sp-xs); }
+    .empty-sub   { font-size: var(--fs-sm); }
+
+    /* ── 단어 카드 ─────────────────────────────────────────── */
+    .word-list { display: flex; flex-direction: column; gap: var(--sp-md); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      background: var(--c-surface); border: 1.5px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-lg);
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow var(--trans), opacity var(--trans);
+      animation: fadeIn .2s ease;
+    }
+    .card:hover { box-shadow: var(--shadow-md); }
+    .card.done  { opacity: .55; background: var(--c-surface-2); }
+
+    .card-view { display: block; }
+    .card-edit { display: none; }
+    .card.editing .card-view { display: none; }
+    .card.editing .card-edit { display: block; }
+
+    .card-header { display: flex; align-items: flex-start; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
+    .chk-wrap { padding-top: 3px; flex-shrink: 0; }
+    .chk {
+      appearance: none; -webkit-appearance: none;
+      width: 20px; height: 20px; border: 2px solid var(--c-border);
+      border-radius: var(--r-sm); cursor: pointer; background: #fff;
+      flex-shrink: 0; transition: all var(--trans);
+    }
+    .chk:checked {
+      background: var(--c-success); border-color: var(--c-success);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6l3 3 5-5' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: center;
+    }
+    .chk:hover:not(:checked) { border-color: var(--c-success); }
+
+    .card-content { flex: 1; min-width: 0; }
+    .card-cols    { display: flex; align-items: baseline; min-width: 0; margin-bottom: var(--sp-xs); }
+    .card-word {
+      font-size: var(--fs-xl); font-weight: var(--fw-bold); word-break: break-word;
+      flex: 0 0 auto; max-width: 42%;
+      padding-right: var(--sp-md);
+      border-right: 1.5px solid var(--c-border);
+    }
+    .card.done .card-word { text-decoration: line-through; color: var(--c-text-muted); }
+
+    .card-actions { display: flex; gap: var(--sp-xs); flex-shrink: 0; align-items: flex-start; padding-top: 2px; }
+
+    .card-meaning {
+      flex: 1; min-width: 0; word-break: break-word;
+      font-size: var(--fs-base); color: var(--c-text-muted);
+      padding-left: var(--sp-md);
+    }
+    .card-example {
+      font-size: var(--fs-sm); color: var(--c-text-muted); font-style: italic;
+      border-left: 2px solid var(--c-border); padding-left: var(--sp-sm); margin-top: var(--sp-xs);
+    }
+    .card-meta { display: flex; gap: var(--sp-md); margin-top: var(--sp-sm); flex-wrap: wrap; }
+    .card-meta span { font-size: var(--fs-xs); color: var(--c-text-light); }
+
+    /* 편집 모드 */
+    .edit-group { margin-bottom: var(--sp-sm); }
+    .edit-label {
+      display: block; font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+      color: var(--c-text-muted); text-transform: uppercase;
+      letter-spacing: .05em; margin-bottom: var(--sp-xs);
+    }
+    .edit-actions { display: flex; gap: var(--sp-sm); justify-content: flex-end; margin-top: var(--sp-md); }
+
+    /* ── 스피너 ───────────────────────────────────────────── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--c-border); border-top-color: var(--c-primary);
+      border-radius: 50%; animation: spin .7s linear infinite;
+      flex-shrink: 0; vertical-align: middle;
+    }
+
+    /* ── 어원 패널 ─────────────────────────────────────────── */
+    .etymology-panel { margin-top: var(--sp-md); padding-top: var(--sp-md); border-top: 1px solid var(--c-border); }
+    .etymology-panel.hidden { display: none; }
+    .etym-loading { display: flex; align-items: center; gap: var(--sp-sm); font-size: var(--fs-sm); color: var(--c-text-muted); }
+    .etym-section { margin-bottom: var(--sp-sm); }
+    .etym-section:last-child { margin-bottom: 0; }
+    .etym-section-title {
+      font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--c-text-muted);
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: var(--sp-xs);
+    }
+    .etym-parts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-xs); }
+    .etym-chip {
+      display: inline-flex; flex-direction: column; align-items: center;
+      background: var(--c-primary-light); border: 1px solid #c7d2fe;
+      border-radius: var(--r-md); padding: var(--sp-xs) var(--sp-sm); min-width: 44px;
+    }
+    .chip-form    { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .chip-meaning { font-size: 11px; color: var(--c-text-muted); }
+    .etym-plus    { color: var(--c-text-light); font-weight: var(--fw-bold); font-size: var(--fs-sm); }
+    .etym-note    { font-size: var(--fs-sm); color: var(--c-text-muted); line-height: 1.7; }
+    .etym-tags    { display: flex; flex-wrap: wrap; gap: var(--sp-xs); }
+    .etym-tag {
+      display: inline-block; background: var(--c-surface-2);
+      border: 1px solid var(--c-border); border-radius: var(--r-full);
+      padding: 2px var(--sp-sm); font-size: var(--fs-xs); color: var(--c-text); font-weight: var(--fw-medium);
+    }
+    .etym-formula {
+      font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+      color: var(--c-primary); font-family: 'Courier New', monospace;
+      background: var(--c-primary-light); border: 1px solid #c7d2fe;
+      border-radius: var(--r-sm); padding: 3px var(--sp-sm);
+      display: inline-block; word-break: break-word;
+    }
+    .etym-error { display: flex; align-items: center; gap: var(--sp-sm); font-size: var(--fs-sm); color: var(--c-danger); }
+
+    /* ── 반응형 ────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .wrap         { padding: var(--sp-md) var(--sp-sm); }
+      .app-title    { font-size: var(--fs-2xl); }
+      .card         { padding: var(--sp-md); }
+      .card-word    { font-size: var(--fs-lg); }
+
+      .add-form     { padding: var(--sp-md); }
+      .form-two-col { grid-template-columns: 1fr; }
+      .toolbar      { flex-wrap: wrap; }
+      .sort-select  { width: 100%; }
+      .card-actions { gap: 2px; }
+      .btn-etym     { padding: 2px var(--sp-xs); }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 헤더 + 상태 표시줄 -->
+  <header class="app-header">
+    <h1 class="app-title">단어 <span>암기장</span></h1>
+    <div class="status-bar">
+      <div class="status-row">
+        <span class="status-count" id="statusCount">0 / 0 완료</span>
+        <span class="status-pct"   id="statusPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p class="congrats" id="congrats">🎉 모든 단어를 암기했어요!</p>
+      <!-- 데이터 내보내기 / 가져오기 -->
+      <div class="data-bar">
+        <span class="data-bar-label">데이터</span>
+        <div class="data-bar-btns">
+          <button class="btn btn-ghost btn-sm" id="btnExport">⬇ 내보내기</button>
+          <button class="btn btn-ghost btn-sm" id="btnExportXlsx">⬇ 엑셀</button>
+          <button class="btn btn-ghost btn-sm" id="btnImport">⬆ 가져오기</button>
+        </div>
+        <span class="import-result" id="importResult"></span>
+        <input type="file" id="fileInput" accept=".json,.xlsx,.xls,.csv" style="display:none">
+      </div>
+    </div>
+  </header>
+
+  <!-- 추가 폼 -->
+  <section class="add-form" aria-label="새 단어 추가">
+    <h2 class="form-title">새 단어 추가</h2>
+    <div class="form-two-col">
+      <div class="form-group">
+        <label for="inWord">단어<span class="req">*</span></label>
+        <input type="text" id="inWord" placeholder="예: perseverance" maxlength="100" autocomplete="off">
+        <p class="err-msg"  id="errWord">단어를 입력해 주세요.</p>
+        <p class="info-msg" id="lookupMsg"></p>
+      </div>
+      <div class="form-group">
+        <label for="inMeaning">뜻<span class="req">*</span></label>
+        <input type="text" id="inMeaning" placeholder="자동으로 채워집니다" maxlength="300" autocomplete="off">
+        <p class="err-msg" id="errMeaning">뜻을 입력해 주세요.</p>
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="inEtym">어원</label>
+      <textarea id="inEtym" placeholder="단어를 입력하면 자동으로 채워집니다." rows="3"></textarea>
+    </div>
+    <div class="form-group">
+      <label for="inExample">비고<span class="opt">(선택)</span></label>
+      <textarea id="inExample" placeholder="참고 사항이나 메모를 입력하세요." maxlength="500"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btnAdd">+ 단어 추가</button>
+    </div>
+  </section>
+
+  <!-- 필터 탭 -->
+  <div class="filter-tabs" role="tablist" aria-label="단어 필터">
+    <button class="tab-btn active" data-filter="all"    role="tab" aria-selected="true">전체</button>
+    <button class="tab-btn"        data-filter="undone" role="tab" aria-selected="false">미완료</button>
+    <button class="tab-btn"        data-filter="done"   role="tab" aria-selected="false">완료</button>
+  </div>
+
+  <!-- 검색 + 정렬 툴바 -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="ico" aria-hidden="true">🔍</span>
+      <input type="text" id="inSearch" placeholder="단어 또는 뜻 검색...">
+      <button class="btn-clear-search" id="btnClearSearch" aria-label="검색 초기화">✕</button>
+    </div>
+    <select class="sort-select" id="sortSelect" aria-label="정렬 기준">
+      <option value="newest">최신순</option>
+      <option value="oldest">오래된순</option>
+      <option value="alpha" selected>가나다순</option>
+      <option value="undone">미완료 우선</option>
+    </select>
+  </div>
+
+  <!-- 단어 목록 -->
+  <main class="word-list" id="wordList" aria-live="polite"></main>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════
+   데이터 유틸
+═══════════════════════════════════════════════════ */
+const STORAGE_KEY = 'wordbook_data';
+
+function loadWords() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+function saveWords(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+/* ════════════════════════════════════════════════════
+   Anthropic API 호출 (서버리스 프록시)
+═══════════════════════════════════════════════════ */
+async function callClaude(prompt, maxTokens = 512) {
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, maxTokens }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data.content[0].text;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('응답 파싱 오류');
+  return JSON.parse(match[0]);
+}
+
+/* ════════════════════════════════════════════════════
+   OpenRouter API 호출 (서버리스 프록시)
+═══════════════════════════════════════════════════ */
+async function callOpenRouter(prompt, maxTokens = 800, model, signal) {
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+    const res = await fetch('/api/openrouter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, maxTokens, model }),
+      signal,
+    });
+
+    const data = await res.json();
+
+    if (res.status === 429) {
+      const waitSec = data.error?.metadata?.retry_after_seconds ?? (attempt + 1) * 10;
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((r, rej) => {
+          const t = setTimeout(r, waitSec * 1000);
+          signal?.addEventListener('abort', () => { clearTimeout(t); rej(new DOMException('Aborted', 'AbortError')); }, { once: true });
+        });
+        continue;
+      }
+    }
+
+    if (!res.ok) {
+      const msg = typeof data.error === 'string'
+        ? data.error
+        : (data.error?.message || data.message || JSON.stringify(data));
+      throw new Error(`HTTP ${res.status}: ${msg}`);
+    }
+
+    const raw   = data.choices?.[0]?.message?.content;
+    if (!raw) throw new Error('빈 응답 (모델이 텍스트를 반환하지 않음)');
+    const text  = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('응답 파싱 오류');
+    return JSON.parse(match[0]);
+  }
+  throw new Error('최대 재시도 횟수 초과');
+}
+
+/* ════════════════════════════════════════════════════
+   앱 상태
+═══════════════════════════════════════════════════ */
+let words       = loadWords();
+let filter      = 'all';
+let searchQuery = '';
+let sortOrder   = 'alpha';
+
+/* ════════════════════════════════════════════════════
+   DOM 참조
+═══════════════════════════════════════════════════ */
+const inWord       = document.getElementById('inWord');
+const inMeaning    = document.getElementById('inMeaning');
+const inEtym       = document.getElementById('inEtym');
+const inExample    = document.getElementById('inExample');
+const errWord      = document.getElementById('errWord');
+const errMeaning   = document.getElementById('errMeaning');
+const lookupMsg    = document.getElementById('lookupMsg');
+const btnAdd       = document.getElementById('btnAdd');
+const wordList     = document.getElementById('wordList');
+const statusCount  = document.getElementById('statusCount');
+const statusPct    = document.getElementById('statusPct');
+const progressFill = document.getElementById('progressFill');
+const congrats     = document.getElementById('congrats');
+const btnExport     = document.getElementById('btnExport');
+const btnImport     = document.getElementById('btnImport');
+const fileInput    = document.getElementById('fileInput');
+const importResult = document.getElementById('importResult');
+const inSearch       = document.getElementById('inSearch');
+const btnClearSearch = document.getElementById('btnClearSearch');
+const sortSelect     = document.getElementById('sortSelect');
+
+/* ════════════════════════════════════════════════════
+   상태 표시줄
+═══════════════════════════════════════════════════ */
+function updateStatus() {
+  const total = words.length;
+  const done  = words.filter(w => w.done).length;
+  const pct   = total === 0 ? 0 : Math.round(done / total * 100);
+  statusCount.textContent  = `${done} / ${total} 완료`;
+  statusPct.textContent    = `${pct}%`;
+  progressFill.style.width = `${pct}%`;
+  congrats.classList.toggle('show', total > 0 && done === total);
+}
+
+/* ════════════════════════════════════════════════════
+   유틸
+═══════════════════════════════════════════════════ */
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+function fmtDate(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ════════════════════════════════════════════════════
+   필터 + 검색 + 정렬
+═══════════════════════════════════════════════════ */
+function getFiltered() {
+  let list = words.slice();
+
+  /* 탭 필터 */
+  if (filter === 'done')   list = list.filter(w => w.done);
+  if (filter === 'undone') list = list.filter(w => !w.done);
+
+  /* 검색 */
+  const q = searchQuery.trim().toLowerCase();
+  if (q) {
+    list = list.filter(w =>
+      w.word.toLowerCase().includes(q) ||
+      w.meaning.toLowerCase().includes(q)
+    );
+  }
+
+  /* 정렬 */
+  switch (sortOrder) {
+    case 'oldest': list.sort((a, b) => a.createdAt - b.createdAt); break;
+    case 'alpha':  list.sort((a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' })); break;
+    case 'undone': list.sort((a, b) => Number(a.done) - Number(b.done)); break;
+    default:       list.sort((a, b) => b.createdAt - a.createdAt); /* newest */
+  }
+
+  return list;
+}
+
+/* ════════════════════════════════════════════════════
+   카드 HTML
+═══════════════════════════════════════════════════ */
+function cardHTML(w) {
+  const exHtml = w.example
+    ? `<blockquote class="card-example">${esc(w.example)}</blockquote>` : '';
+  const updatedHtml = w.updatedAt !== w.createdAt
+    ? `<span>수정 ${fmtDate(w.updatedAt)}</span>` : '';
+
+  return `
+  <article class="card${w.done ? ' done' : ''}" data-id="${w.id}">
+    <div class="card-view">
+      <div class="card-header">
+        <div class="chk-wrap">
+          <input type="checkbox" class="chk" ${w.done ? 'checked' : ''} aria-label="암기 완료">
+        </div>
+        <div class="card-content">
+          <div class="card-cols">
+            <div class="card-word">${esc(w.word)}</div>
+            <div class="card-meaning">${esc(w.meaning)}</div>
+          </div>
+          ${exHtml}
+          <div class="card-meta">
+            <span>추가 ${fmtDate(w.createdAt)}</span>
+            ${updatedHtml}
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-icon btn-etym${w.etymology ? ' cached' : ''}" title="어원 분석" aria-label="어원 분석">어원</button>
+          <button class="btn-icon btn-edit" title="편집" aria-label="편집">✏️</button>
+          <button class="btn-icon del btn-del" title="삭제" aria-label="삭제">🗑️</button>
+        </div>
+      </div>
+      <div class="etymology-panel hidden"></div>
+    </div>
+
+    <div class="card-edit">
+      <div class="edit-group">
+        <label class="edit-label">단어 *</label>
+        <input type="text" class="edit-word" value="${esc(w.word)}" maxlength="100">
+        <p class="err-msg" style="display:none">단어를 입력해 주세요.</p>
+      </div>
+      <div class="edit-group">
+        <label class="edit-label">뜻 *</label>
+        <textarea class="edit-meaning" maxlength="300">${esc(w.meaning)}</textarea>
+        <p class="err-msg" style="display:none">뜻을 입력해 주세요.</p>
+      </div>
+      <div class="edit-group">
+        <label class="edit-label">비고 (선택)</label>
+        <textarea class="edit-example" maxlength="500">${esc(w.example || '')}</textarea>
+      </div>
+      <div class="edit-actions">
+        <button class="btn btn-ghost btn-cancel">취소</button>
+        <button class="btn btn-success btn-save">저장</button>
+      </div>
+    </div>
+  </article>`;
+}
+
+/* ════════════════════════════════════════════════════
+   렌더링
+═══════════════════════════════════════════════════ */
+function render() {
+  const list = getFiltered();
+
+  /* 단어가 하나도 없음 */
+  if (words.length === 0) {
+    wordList.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📚</div>
+        <p class="empty-title">단어를 추가해 학습을 시작하세요.</p>
+        <p class="empty-sub">위 폼에서 첫 번째 단어를 등록해 보세요!</p>
+      </div>`;
+    return;
+  }
+
+  /* 필터·검색 조합 결과 없음 */
+  if (list.length === 0) {
+    const sub = searchQuery.trim()
+      ? '다른 검색어를 시도해 보세요.'
+      : '필터 또는 정렬 조건을 변경해 보세요.';
+    wordList.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🔍</div>
+        <p class="empty-title">해당하는 단어가 없습니다.</p>
+        <p class="empty-sub">${sub}</p>
+      </div>`;
+    return;
+  }
+
+  wordList.innerHTML = list.map(cardHTML).join('');
+  list.forEach(w => bindCard(w.id));
+}
+
+/* ════════════════════════════════════════════════════
+   카드 이벤트 바인딩
+═══════════════════════════════════════════════════ */
+function bindCard(id) {
+  const card = wordList.querySelector(`[data-id="${id}"]`);
+  if (!card) return;
+
+  /* 체크박스 */
+  card.querySelector('.chk').addEventListener('change', e => {
+    const w = words.find(w => w.id === id);
+    if (!w) return;
+    w.done = e.target.checked;
+    w.updatedAt = Date.now();
+    saveWords(words);
+    card.classList.toggle('done', w.done);
+    updateStatus();
+  });
+
+  /* 편집 */
+  card.querySelector('.btn-edit').addEventListener('click', () => {
+    card.classList.add('editing');
+    card.querySelector('.edit-word').focus();
+  });
+
+  /* 삭제 */
+  card.querySelector('.btn-del').addEventListener('click', () => {
+    if (!confirm('삭제할까요?')) return;
+    words = words.filter(w => w.id !== id);
+    saveWords(words);
+    render();
+    updateStatus();
+  });
+
+  /* 취소 */
+  card.querySelector('.btn-cancel').addEventListener('click', () => {
+    card.classList.remove('editing');
+    clearEditErrors(card);
+  });
+
+  /* 저장 */
+  card.querySelector('.btn-save').addEventListener('click', () => commitEdit(id, card));
+
+  /* 키보드: ESC 취소 / Ctrl+Enter 저장 */
+  card.addEventListener('keydown', e => {
+    if (!card.classList.contains('editing')) return;
+    if (e.key === 'Escape') { card.classList.remove('editing'); clearEditErrors(card); }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(id, card); }
+  });
+
+  /* 어원 버튼 */
+  const btnEtym   = card.querySelector('.btn-etym');
+  const etymPanel = card.querySelector('.etymology-panel');
+
+  btnEtym.addEventListener('click', () => {
+    const w = words.find(w => w.id === id);
+    if (!w) return;
+
+    if (!etymPanel.classList.contains('hidden')) {
+      etymPanel.classList.add('hidden');
+      btnEtym.textContent = '어원';
+      btnEtym.classList.toggle('cached', !!w.etymology);
+      return;
+    }
+
+    if (w.etymology) {
+      renderEtymologyResult(etymPanel, w.etymology);
+      etymPanel.classList.remove('hidden');
+      btnEtym.textContent = '닫기';
+      return;
+    }
+
+    analyzeEtymology(id, card);
+  });
+}
+
+function clearEditErrors(card) {
+  card.querySelectorAll('.edit-group .err-msg').forEach(el => el.style.display = 'none');
+  card.querySelectorAll('.edit-word, .edit-meaning').forEach(el => el.classList.remove('err'));
+}
+
+function commitEdit(id, card) {
+  const wordEl    = card.querySelector('.edit-word');
+  const meaningEl = card.querySelector('.edit-meaning');
+  const exEl      = card.querySelector('.edit-example');
+  const newWord    = wordEl.value.trim();
+  const newMeaning = meaningEl.value.trim();
+  const newExample = exEl.value.trim();
+
+  let valid = true;
+  const errEls = card.querySelectorAll('.edit-group .err-msg');
+
+  if (!newWord) {
+    wordEl.classList.add('err'); errEls[0].style.display = 'block'; valid = false;
+  } else { wordEl.classList.remove('err'); errEls[0].style.display = 'none'; }
+
+  if (!newMeaning) {
+    meaningEl.classList.add('err'); errEls[1].style.display = 'block'; valid = false;
+  } else { meaningEl.classList.remove('err'); errEls[1].style.display = 'none'; }
+
+  if (!valid) return;
+
+  const w = words.find(w => w.id === id);
+  if (w) {
+    w.word      = newWord;
+    w.meaning   = newMeaning;
+    w.example   = newExample;
+    w.updatedAt = Date.now();
+    saveWords(words);
+    render();
+    updateStatus();
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   기능 ① 뜻 + 어원 자동 조회 (OpenRouter nemotron)
+═══════════════════════════════════════════════════ */
+const LOOKUP_MODELS = [
+  'deepseek/deepseek-v4-flash',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+  'google/gemma-4-26b-a4b-it:free',
+  'qwen/qwen3-next-80b-a3b-instruct:free',
+];
+let lookupBusy = false;
+let lookupData = null;
+let lookupController = null;
+
+function abortLookup() {
+  if (lookupController) { lookupController.abort(); lookupController = null; }
+  lookupBusy = false;
+  inMeaning.disabled = false;
+  inEtym.disabled    = false;
+}
+
+function showLookupMsg(text, type) {
+  lookupMsg.textContent = text;
+  lookupMsg.className = `info-msg show ${type}`;
+}
+function hideLookupMsg() { lookupMsg.className = 'info-msg'; }
+
+async function lookupWordData(word) {
+  if (!word || lookupBusy) return;
+
+  lookupController = new AbortController();
+  const { signal } = lookupController;
+  lookupBusy = true;
+  lookupData  = null;
+  hideLookupMsg();
+  inMeaning.placeholder = '조회 중...';
+  inEtym.placeholder    = '분석 중...';
+  inMeaning.disabled = true;
+  inEtym.disabled    = true;
+
+  const prompt =
+    `Look up the English word "${word}". Return ONLY this JSON with no markdown, no extra text:\n` +
+    `{"meaning":"한국어 뜻 (간결하게, 최대 60자)","formula":"WORD=morpheme<root(meaning)+morpheme<root(meaning)"}\n` +
+    `Formula rules: morpheme=part as it appears, root=original Latin/Greek form, meaning=short English gloss. No Korean in formula.\n` +
+    `Example: {"meaning":"인지하다, 알다","formula":"cognate=co<com(together)+gn<gen(born)"}`;
+
+  try {
+    let lastErr;
+    for (const model of LOOKUP_MODELS) {
+      try {
+        const result = await callOpenRouter(prompt, 1200, model, signal);
+        lookupData = result;
+        if (!inMeaning.value.trim() && result.meaning) inMeaning.value = result.meaning;
+        if (!inEtym.value.trim()    && result.formula)  inEtym.value    = result.formula;
+        lastErr = null;
+        break;
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+        console.warn(`[lookupWordData] ${model} 실패:`, err.message);
+        lastErr = err;
+      }
+    }
+    if (lastErr) {
+      console.error('[lookupWordData] 모든 모델 실패:', lastErr);
+      showLookupMsg('조회 실패: ' + (lastErr.message || '알 수 없는 오류'), 'error');
+    }
+  } finally {
+    lookupController = null;
+    inMeaning.placeholder = '자동으로 채워집니다';
+    inEtym.placeholder    = '단어를 입력하면 자동으로 채워집니다.';
+    inMeaning.disabled = false;
+    inEtym.disabled    = false;
+    lookupBusy = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   기능 ② 어원 분석
+═══════════════════════════════════════════════════ */
+function renderEtymologyResult(panel, etym) {
+  const formula = typeof etym === 'string' ? etym : (etym.formula || '');
+  panel.innerHTML = `<div class="etym-section"><span class="etym-formula">${esc(formula)}</span></div>`;
+}
+
+async function analyzeEtymology(id, card) {
+  const w = words.find(w => w.id === id);
+  if (!w) return;
+
+  const btnEtym   = card.querySelector('.btn-etym');
+  const etymPanel = card.querySelector('.etymology-panel');
+
+  etymPanel.innerHTML = '<div class="etym-loading"><span class="spinner"></span><span>어원 분석 중...</span></div>';
+  etymPanel.classList.remove('hidden');
+  btnEtym.disabled = true;
+  btnEtym.innerHTML = '<span class="spinner"></span>';
+
+  const etymPrompt =
+    `Break down the etymology of "${w.word}" into morphemes and their Latin/Greek roots.\n` +
+    `Return ONLY this exact JSON with no explanation, no Korean, no extra text:\n` +
+    `{"formula":"WORD=morpheme<root(meaning)+morpheme<root(meaning)"}\n` +
+    `Rules: morpheme=the part as it appears in the word, root=original Latin/Greek form, meaning=short English gloss.\n` +
+    `Example: {"formula":"cognate=co<com(together)+gn<gen(born)"}`;
+
+  let etymResult = null;
+  for (const model of LOOKUP_MODELS) {
+    try { etymResult = await callOpenRouter(etymPrompt, 2000, model); break; }
+    catch (e) { console.warn(`[analyzeEtymology] ${model} 실패:`, e.message); }
+  }
+
+  if (etymResult) {
+    w.etymology = etymResult.formula || etymResult;
+    w.updatedAt = Date.now();
+    saveWords(words);
+    renderEtymologyResult(etymPanel, etymResult);
+    btnEtym.disabled = false;
+    btnEtym.textContent = '닫기';
+    btnEtym.classList.add('cached');
+  } else {
+    etymPanel.innerHTML = `
+      <div class="etym-error">
+        <span>분석에 실패했습니다. 다시 시도해 주세요.</span>
+        <button class="btn btn-ghost btn-sm btn-retry">재시도</button>
+      </div>`;
+    btnEtym.disabled = false;
+    btnEtym.textContent = '어원';
+    btnEtym.classList.remove('cached');
+    etymPanel.querySelector('.btn-retry').addEventListener('click', () => {
+      etymPanel.classList.add('hidden');
+      analyzeEtymology(id, card);
+    });
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   어원 자동 분석 큐 (백그라운드)
+═══════════════════════════════════════════════════ */
+const etymQueue = [];
+let etymProcessing = false;
+
+function queueEtymology(id) {
+  const w = words.find(w => w.id === id);
+  if (!w || w.etymology) return;
+  if (!etymQueue.includes(id)) etymQueue.push(id);
+  if (!etymProcessing) processEtymQueue();
+}
+
+async function processEtymQueue() {
+  if (etymQueue.length === 0) { etymProcessing = false; return; }
+  etymProcessing = true;
+  const id = etymQueue.shift();
+  await fetchEtymologyBg(id);
+  processEtymQueue();
+}
+
+async function fetchEtymologyBg(id) {
+  const w = words.find(w => w.id === id);
+  if (!w || w.etymology) return;
+
+  const card = wordList.querySelector(`[data-id="${id}"]`);
+  const btn  = card?.querySelector('.btn-etym');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+
+  try {
+    const bgPrompt =
+      `Break down the etymology of "${w.word}" into morphemes and their Latin/Greek roots.\n` +
+      `Return ONLY this exact JSON with no explanation, no Korean, no extra text:\n` +
+      `{"formula":"WORD=morpheme<root(meaning)+morpheme<root(meaning)"}\n` +
+      `Rules: morpheme=the part as it appears in the word, root=original Latin/Greek form, meaning=short English gloss.\n` +
+      `Example: {"formula":"cognate=co<com(together)+gn<gen(born)"}`;
+    for (const model of LOOKUP_MODELS) {
+      try {
+        const result = await callOpenRouter(bgPrompt, 2000, model);
+        w.etymology = result.formula || result;
+        w.updatedAt = Date.now();
+        saveWords(words);
+        break;
+      } catch (e) { console.warn(`[fetchEtymologyBg] ${model} 실패:`, e.message); }
+    }
+  } catch {
+    /* silent fail */
+  } finally {
+    const updatedCard = wordList.querySelector(`[data-id="${id}"]`);
+    const updatedBtn  = updatedCard?.querySelector('.btn-etym');
+    if (updatedBtn) {
+      updatedBtn.disabled = false;
+      updatedBtn.textContent = '어원';
+      updatedBtn.classList.toggle('cached', !!(words.find(w => w.id === id)?.etymology));
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   단어 추가
+═══════════════════════════════════════════════════ */
+function clearAddError(input, errEl) {
+  input.classList.remove('err');
+  errEl.classList.remove('show');
+}
+
+function validateAndAdd() {
+  const wasLookingUp = lookupBusy;
+  if (wasLookingUp) abortLookup();
+
+  const word    = inWord.value.trim();
+  const meaning = inMeaning.value.trim();
+  const example = inExample.value.trim();
+  let valid = true;
+
+  if (!word) {
+    inWord.classList.add('err'); errWord.classList.add('show'); valid = false;
+  } else { clearAddError(inWord, errWord); }
+
+  if (!wasLookingUp && !meaning) {
+    inMeaning.classList.add('err'); errMeaning.classList.add('show'); valid = false;
+  } else { clearAddError(inMeaning, errMeaning); }
+
+  if (!valid) return;
+
+  const newId     = crypto.randomUUID();
+  const etymology = lookupData?.formula || inEtym.value.trim() || null;
+  words.unshift({
+    id: newId,
+    word, meaning, example,
+    done: false,
+    etymology,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  saveWords(words);
+  lookupData = null;
+
+  inWord.value    = '';
+  inMeaning.value = '';
+  inEtym.value    = '';
+  inExample.value = '';
+  hideLookupMsg();
+  inWord.focus();
+
+  render();
+  updateStatus();
+
+  const newCard = wordList.querySelector(`[data-id="${newId}"]`);
+  if (newCard) {
+    const etymPanel = newCard.querySelector('.etymology-panel');
+    const btnEtym   = newCard.querySelector('.btn-etym');
+    if (etymology) {
+      renderEtymologyResult(etymPanel, etymology);
+      etymPanel.classList.remove('hidden');
+      btnEtym.textContent = '닫기';
+      btnEtym.classList.add('cached');
+    } else {
+      analyzeEtymology(newId, newCard);
+    }
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   내보내기 / 가져오기
+═══════════════════════════════════════════════════ */
+function exportWords() {
+  const blob = new Blob([JSON.stringify(words, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'wordbook_export.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importWords(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'xlsx' || ext === 'xls') {
+    importWordsFromXlsx(file);
+  } else if (ext === 'csv') {
+    importWordsFromCsv(file);
+  } else {
+    importWordsFromJson(file);
+  }
+}
+
+function applyImported(imported) {
+  const existingIds = new Set(words.map(w => w.id));
+  const newWords    = imported.filter(w => !existingIds.has(w.id));
+  words = [...words, ...newWords];
+  saveWords(words);
+  render();
+  updateStatus();
+  importResult.textContent = `${newWords.length}개 단어를 가져왔습니다.`;
+  importResult.className   = 'import-result ok';
+  setTimeout(() => { importResult.textContent = ''; importResult.className = 'import-result'; }, 4000);
+}
+
+function importWordsFromJson(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    let imported;
+    try {
+      imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error();
+      const ok = imported.every(w =>
+        w && typeof w.id === 'string' &&
+        typeof w.word === 'string' &&
+        typeof w.meaning === 'string'
+      );
+      if (!ok) throw new Error();
+    } catch {
+      importResult.textContent = '올바른 형식의 파일이 아닙니다.';
+      importResult.className   = 'import-result error';
+      return;
+    }
+    applyImported(imported);
+  };
+  reader.readAsText(file);
+}
+
+function rowsToWords(rows) {
+  /* 헤더: word, meaning, example(선택), done(선택) */
+  const header = rows[0].map(h => String(h).trim().toLowerCase());
+  const wi = header.indexOf('word');
+  const mi = header.indexOf('meaning');
+  const ei = header.indexOf('example');
+  const di = header.indexOf('done');
+
+  if (wi === -1 || mi === -1) throw new Error('word/meaning 열이 없습니다.');
+
+  return rows.slice(1)
+    .filter(r => r[wi] && r[mi])
+    .map(r => ({
+      id:        crypto.randomUUID(),
+      word:      String(r[wi]).trim(),
+      meaning:   String(r[mi]).trim(),
+      example:   ei !== -1 ? String(r[ei] || '').trim() : '',
+      done:      di !== -1 ? (String(r[di]).toLowerCase() === 'true' || r[di] == 1) : false,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }));
+}
+
+function importWordsFromXlsx(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      applyImported(rowsToWords(rows));
+    } catch (err) {
+      importResult.textContent = '엑셀 파싱 오류: ' + err.message;
+      importResult.className   = 'import-result error';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function importWordsFromCsv(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type: 'string' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      applyImported(rowsToWords(rows));
+    } catch (err) {
+      importResult.textContent = 'CSV 파싱 오류: ' + err.message;
+      importResult.className   = 'import-result error';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function exportWordsXlsx() {
+  const data = [
+    ['word', 'meaning', 'example', 'done'],
+    ...words.map(w => [w.word, w.meaning, w.example || '', w.done ? 'true' : 'false']),
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'wordbook');
+  XLSX.writeFile(wb, 'wordbook_export.xlsx');
+}
+
+/* ════════════════════════════════════════════════════
+   이벤트 등록
+═══════════════════════════════════════════════════ */
+
+/* 뜻 + 어원 자동 조회 */
+inWord.addEventListener('blur', () => {
+  const word = inWord.value.trim();
+  if (word) lookupWordData(word);
+});
+
+/* 단어 추가 */
+btnAdd.addEventListener('click', validateAndAdd);
+inWord.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); validateAndAdd(); }
+});
+inMeaning.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); validateAndAdd(); }
+});
+
+/* 에러 클리어 */
+inWord.addEventListener('input', () => {
+  clearAddError(inWord, errWord);
+  hideLookupMsg();
+  if (!inWord.value.trim()) { inEtym.value = ''; lookupData = null; }
+});
+inMeaning.addEventListener('input', () => clearAddError(inMeaning, errMeaning));
+
+/* 필터 탭 */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    filter = btn.dataset.filter;
+    render();
+  });
+});
+
+/* 실시간 검색 */
+inSearch.addEventListener('input', () => {
+  searchQuery = inSearch.value;
+  btnClearSearch.classList.toggle('show', !!searchQuery);
+  render();
+});
+btnClearSearch.addEventListener('click', () => {
+  searchQuery = '';
+  inSearch.value = '';
+  btnClearSearch.classList.remove('show');
+  render();
+});
+
+/* 정렬 */
+sortSelect.addEventListener('change', () => {
+  sortOrder = sortSelect.value;
+  render();
+});
+
+/* 내보내기 / 가져오기 */
+btnExport.addEventListener('click', exportWords);
+document.getElementById('btnExportXlsx').addEventListener('click', exportWordsXlsx);
+btnImport.addEventListener('click', () => {
+  fileInput.value = '';
+  fileInput.click();
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) importWords(fileInput.files[0]);
+});
+
+/* ════════════════════════════════════════════════════
+   초기화
+═══════════════════════════════════════════════════ */
+render();
+updateStatus();
+words.filter(w => !w.etymology).forEach(w => queueEtymology(w.id));
+</script>
+</body>
+</html>
