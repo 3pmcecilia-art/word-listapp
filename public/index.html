@@ -234,8 +234,8 @@
     .card.editing .card-view { display: none; }
     .card.editing .card-edit { display: block; }
 
-    .card-header { display: flex; align-items: flex-start; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
-    .chk-wrap { padding-top: 3px; flex-shrink: 0; }
+    .card-header { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-xs); }
+    .chk-wrap { flex-shrink: 0; }
     .chk {
       appearance: none; -webkit-appearance: none;
       width: 20px; height: 20px; border: 2px solid var(--c-border);
@@ -250,7 +250,8 @@
     .chk:hover:not(:checked) { border-color: var(--c-success); }
 
     .card-content { flex: 1; min-width: 0; }
-    .card-cols    { display: flex; align-items: baseline; min-width: 0; margin-bottom: var(--sp-xs); }
+    .card-cols    { flex: 1; min-width: 0; display: flex; align-items: baseline; }
+    .card-footer  { display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-sm); }
     .card-word {
       font-size: var(--fs-xl); font-weight: var(--fw-bold); word-break: break-word;
       flex: 0 0 auto; max-width: 42%;
@@ -259,7 +260,7 @@
     }
     .card.done .card-word { text-decoration: line-through; color: var(--c-text-muted); }
 
-    .card-actions { display: flex; gap: var(--sp-xs); flex-shrink: 0; align-items: flex-start; padding-top: 2px; }
+    .card-actions { display: flex; gap: var(--sp-xs); align-items: center; }
 
     .card-meaning {
       flex: 1; min-width: 0; word-break: break-word;
@@ -270,7 +271,7 @@
       font-size: var(--fs-sm); color: var(--c-text-muted); font-style: italic;
       border-left: 2px solid var(--c-border); padding-left: var(--sp-sm); margin-top: var(--sp-xs);
     }
-    .card-meta { display: flex; gap: var(--sp-md); margin-top: var(--sp-sm); flex-wrap: wrap; }
+    .card-meta { display: flex; gap: var(--sp-md); flex-wrap: wrap; }
     .card-meta span { font-size: var(--fs-xs); color: var(--c-text-light); }
 
     /* 편집 모드 */
@@ -326,6 +327,95 @@
     }
     .etym-error { display: flex; align-items: center; gap: var(--sp-sm); font-size: var(--fs-sm); color: var(--c-danger); }
 
+    /* ── 페이지 네비게이션 ───────────────────────────────────── */
+    .page-nav {
+      display: flex; gap: var(--sp-xs); padding: var(--sp-xs);
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); margin-bottom: var(--sp-lg);
+      box-shadow: var(--shadow-sm);
+    }
+    .page-nav-btn {
+      flex: 1; padding: var(--sp-sm) var(--sp-md); border: none;
+      border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: var(--fw-medium);
+      cursor: pointer; background: transparent; color: var(--c-text-muted);
+      font-family: inherit; transition: all var(--trans);
+    }
+    .page-nav-btn:hover  { background: var(--c-surface-2); color: var(--c-text); }
+    .page-nav-btn.active { background: var(--c-primary); color: #fff; font-weight: var(--fw-semibold); }
+    .page.hidden { display: none; }
+
+    /* ── 어근 사전 ────────────────────────────────────────── */
+    .roots-page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: var(--sp-sm); margin-bottom: var(--sp-lg);
+    }
+    .roots-header-actions { display: flex; gap: var(--sp-sm); }
+
+    .roots-fetch-bar {
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-md) var(--sp-lg);
+      margin-bottom: var(--sp-lg); box-shadow: var(--shadow-sm);
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-md);
+    }
+    .roots-fetch-info   { font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: var(--fw-medium); }
+    .roots-fetch-status { font-size: var(--fs-xs); color: var(--c-text-muted); margin-top: 2px; }
+
+    .add-root-form {
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-lg);
+      margin-bottom: var(--sp-lg); box-shadow: var(--shadow-sm); display: none;
+    }
+    .add-root-form.show { display: block; }
+
+    .roots-toolbar {
+      display: flex; gap: var(--sp-sm); align-items: center; margin-bottom: var(--sp-sm);
+    }
+    .roots-count { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-muted); margin-bottom: var(--sp-md); }
+
+    .roots-grid { display: flex; flex-direction: column; gap: var(--sp-md); }
+
+    .root-card {
+      background: var(--c-surface); border: 1.5px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--sp-lg);
+      box-shadow: var(--shadow-sm); animation: fadeIn .2s ease;
+      transition: box-shadow var(--trans);
+    }
+    .root-card:hover { box-shadow: var(--shadow-md); }
+    .root-card-view {}
+    .root-card-edit { display: none; }
+    .root-card.editing .root-card-view { display: none; }
+    .root-card.editing .root-card-edit { display: block; }
+
+    .root-header { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
+    .root-form-text { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .root-origin-badge {
+      font-size: var(--fs-xs); font-weight: var(--fw-semibold);
+      padding: 2px var(--sp-sm); border-radius: var(--r-full);
+      background: var(--c-surface-2); color: var(--c-text-muted); border: 1px solid var(--c-border);
+    }
+    .root-meaning-text { font-size: var(--fs-base); color: var(--c-text); margin-bottom: var(--sp-sm); }
+    .root-examples    { display: flex; flex-wrap: wrap; gap: var(--sp-xs); }
+    .root-example-chip {
+      font-size: var(--fs-sm); background: var(--c-primary-light);
+      color: var(--c-primary); border: 1px solid #c7d2fe;
+      border-radius: var(--r-full); padding: 2px var(--sp-sm); font-weight: var(--fw-medium);
+    }
+    .root-actions { margin-left: auto; display: flex; gap: var(--sp-xs); flex-shrink: 0; }
+    .root-card.done { opacity: .55; background: var(--c-surface-2); }
+    .root-card.done .root-form-text { text-decoration: line-through; color: var(--c-text-muted); }
+
+    @keyframes rootHighlight {
+      0%, 100% { box-shadow: var(--shadow-md); }
+      50%       { box-shadow: 0 0 0 3px var(--c-primary); }
+    }
+    .root-card.root-highlight { animation: rootHighlight .8s ease 2; }
+
+    .etym-root-link {
+      color: var(--c-primary); text-decoration: underline;
+      text-decoration-style: dotted; cursor: pointer; font-weight: inherit;
+    }
+    .etym-root-link:hover { text-decoration-style: solid; }
+
     /* ── 반응형 ────────────────────────────────────────────── */
     @media (max-width: 480px) {
       .wrap         { padding: var(--sp-md) var(--sp-sm); }
@@ -344,6 +434,15 @@
 </head>
 <body>
 <div class="wrap">
+
+  <!-- 페이지 탭 네비게이션 -->
+  <nav class="page-nav">
+    <button class="page-nav-btn active" data-page="words">📚 암기장</button>
+    <button class="page-nav-btn"        data-page="roots">🌱 어근 사전</button>
+  </nav>
+
+  <!-- ══ 페이지: 암기장 ══ -->
+  <div id="page-words" class="page">
 
   <!-- 헤더 + 상태 표시줄 -->
   <header class="app-header">
@@ -424,6 +523,94 @@
 
   <!-- 단어 목록 -->
   <main class="word-list" id="wordList" aria-live="polite"></main>
+
+  </div><!-- /page-words -->
+
+  <!-- ══ 페이지: 어근 사전 ══ -->
+  <div id="page-roots" class="page hidden">
+
+    <!-- 헤더 -->
+    <header class="app-header">
+      <div class="roots-page-header">
+        <h1 class="app-title">어근 <span>사전</span></h1>
+        <div class="roots-header-actions">
+          <button class="btn btn-ghost btn-sm" id="btnSyncWords">🔄 단어장 동기화</button>
+          <button class="btn btn-ghost btn-sm" id="btnAddRoot">+ 어근 추가</button>
+          <button class="btn btn-primary btn-sm" id="btnFetchRoots">✨ AI로 불러오기</button>
+        </div>
+      </div>
+      <!-- AI 불러오기 진행 표시 -->
+      <div class="roots-fetch-bar" id="rootsFetchBar" style="display:none">
+        <div>
+          <div class="roots-fetch-info"  id="rootsFetchInfo">불러오는 중...</div>
+          <div class="roots-fetch-status" id="rootsFetchStatus"></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="btnStopFetch">중단</button>
+      </div>
+    </header>
+
+    <!-- 어근 추가 폼 (기본 숨김) -->
+    <section class="add-root-form" id="addRootForm" aria-label="새 어근 추가">
+      <h2 class="form-title">새 어근 추가</h2>
+      <div class="form-two-col">
+        <div class="form-group">
+          <label for="inRootWord">어근<span class="req">*</span></label>
+          <input type="text" id="inRootWord" placeholder="예: port" maxlength="50" autocomplete="off">
+          <p class="err-msg" id="errRootWord">어근을 입력해 주세요.</p>
+        </div>
+        <div class="form-group">
+          <label for="inRootOrigin">기원</label>
+          <select class="sort-select" id="inRootOrigin" style="width:100%">
+            <option value="Latin">Latin (라틴어)</option>
+            <option value="Greek">Greek (그리스어)</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="inRootMeaning">뜻<span class="req">*</span></label>
+        <input type="text" id="inRootMeaning" placeholder="예: carry, bring" maxlength="200" autocomplete="off">
+        <p class="err-msg" id="errRootMeaning">뜻을 입력해 주세요.</p>
+      </div>
+      <div class="form-group">
+        <label for="inRootExamples">예시 단어<span class="opt">(선택, 쉼표로 구분)</span></label>
+        <input type="text" id="inRootExamples" placeholder="예: transport, export, portable" maxlength="400" autocomplete="off">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="btnCancelAddRoot">취소</button>
+        <button class="btn btn-primary" id="btnSaveRoot">저장</button>
+      </div>
+    </section>
+
+    <!-- 검색 + 필터 -->
+    <div class="roots-toolbar">
+      <div class="search-wrap" style="flex:1">
+        <span class="ico" aria-hidden="true">🔍</span>
+        <input type="text" id="inRootSearch" placeholder="어근, 뜻, 예시 단어 검색...">
+        <button class="btn-clear-search" id="btnClearRootSearch" aria-label="검색 초기화">✕</button>
+      </div>
+      <select class="sort-select" id="rootOriginFilter" aria-label="기원 필터">
+        <option value="all">전체</option>
+        <option value="Latin">Latin</option>
+        <option value="Greek">Greek</option>
+        <option value="기타">기타</option>
+      </select>
+    </div>
+
+    <!-- 완료 필터 탭 -->
+    <div class="filter-tabs" role="tablist" aria-label="어근 필터">
+      <button class="tab-btn active" data-done="all"    role="tab" aria-selected="true">전체</button>
+      <button class="tab-btn"        data-done="undone" role="tab" aria-selected="false">미완료</button>
+      <button class="tab-btn"        data-done="done"   role="tab" aria-selected="false">완료</button>
+    </div>
+
+    <!-- 개수 표시 -->
+    <p class="roots-count" id="rootsCount">0개의 어근</p>
+
+    <!-- 어근 목록 -->
+    <div class="roots-grid" id="rootsList" aria-live="polite"></div>
+
+  </div><!-- /page-roots -->
 
 </div>
 
@@ -674,19 +861,19 @@ function cardHTML(w) {
         <div class="chk-wrap">
           <input type="checkbox" class="chk" ${w.done ? 'checked' : ''} aria-label="암기 완료">
         </div>
-        <div class="card-content">
-          <div class="card-cols">
-            <div class="card-word">${esc(w.word)}</div>
-            <div class="card-meaning">${esc(w.meaning)}</div>
-          </div>
-          ${exHtml}
-          <div class="card-meta">
-            <span>추가 ${fmtDate(w.createdAt)}</span>
-            ${updatedHtml}
-          </div>
+        <div class="card-cols">
+          <div class="card-word">${esc(w.word)}</div>
+          <div class="card-meaning">${esc(w.meaning)}</div>
+        </div>
+        <button class="btn-icon btn-etym${w.etymology ? ' cached' : ''}" title="어원 분석" aria-label="어원 분석">어원</button>
+      </div>
+      ${exHtml}
+      <div class="card-footer">
+        <div class="card-meta">
+          <span>추가 ${fmtDate(w.createdAt)}</span>
+          ${updatedHtml}
         </div>
         <div class="card-actions">
-          <button class="btn-icon btn-etym${w.etymology ? ' cached' : ''}" title="어원 분석" aria-label="어원 분석">어원</button>
           <button class="btn-icon btn-edit" title="편집" aria-label="편집">✏️</button>
           <button class="btn-icon del btn-del" title="삭제" aria-label="삭제">🗑️</button>
         </div>
@@ -917,7 +1104,7 @@ async function lookupWordData(word) {
         const result = await callOpenRouter(prompt, 1200, model, signal);
         lookupData = result;
         if (!inMeaning.value.trim() && result.meaning) inMeaning.value = result.meaning;
-        if (!inEtym.value.trim()    && result.formula)  inEtym.value    = result.formula;
+        if (!inEtym.value.trim()    && result.formula)  inEtym.value    = simplifyFormula(result.formula);
         lastErr = null;
         break;
       } catch (err) {
@@ -943,9 +1130,57 @@ async function lookupWordData(word) {
 /* ════════════════════════════════════════════════════
    기능 ② 어원 분석
 ═══════════════════════════════════════════════════ */
+function simplifyFormula(formula) {
+  /* morph<root(meaning) → morph(meaning) when morph === root */
+  return formula.replace(/(\w+)<(\w+)(\([^)]*\))/g, (_, morph, root, meaning) =>
+    morph.toLowerCase() === root.toLowerCase() ? morph + meaning : _
+  );
+}
+
+function renderFormulaWithLinks(formula) {
+  const eqIdx = formula.indexOf('=');
+  if (eqIdx === -1) return `<span class="etym-formula">${esc(formula)}</span>`;
+
+  const word = formula.slice(0, eqIdx);
+  const rest = formula.slice(eqIdx + 1);
+
+  /* + 기준 분리 (괄호 안 제외) */
+  const parts = [];
+  let depth = 0, cur = '';
+  for (const ch of rest) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === '+' && depth === 0) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur) parts.push(cur);
+
+  const linked = parts.map(part => {
+    const pi = part.indexOf('(');
+    const pe = part.lastIndexOf(')');
+    if (pi === -1) return esc(part);
+
+    const meaning = esc(part.slice(pi + 1, pe));
+    const prefix  = part.slice(0, pi);
+    const li      = prefix.lastIndexOf('<');
+
+    if (li !== -1) {
+      const morph = esc(prefix.slice(0, li));
+      const root  = prefix.slice(li + 1).trim();
+      return `${morph}&lt;<a class="etym-root-link" data-root="${esc(root)}" href="#">${esc(root)}</a>(${meaning})`;
+    } else {
+      const root = prefix.trim();
+      return `<a class="etym-root-link" data-root="${esc(root)}" href="#">${esc(root)}</a>(${meaning})`;
+    }
+  });
+
+  return `<span class="etym-formula">${esc(word)}=${linked.join('+')}</span>`;
+}
+
 function renderEtymologyResult(panel, etym) {
-  const formula = typeof etym === 'string' ? etym : (etym.formula || '');
-  panel.innerHTML = `<div class="etym-section"><span class="etym-formula">${esc(formula)}</span></div>`;
+  const raw     = typeof etym === 'string' ? etym : (etym.formula || '');
+  const formula = simplifyFormula(raw);
+  panel.innerHTML = `<div class="etym-section">${renderFormulaWithLinks(formula)}</div>`;
 }
 
 async function analyzeEtymology(id, card) {
@@ -1329,6 +1564,584 @@ fileInput.addEventListener('change', () => {
   updateStatus();
   words.filter(w => !w.etymology).forEach(w => queueEtymology(w.id));
 })();
+
+/* ════════════════════════════════════════════════════
+   어근 링크 클릭 → 어근 사전으로 이동
+═══════════════════════════════════════════════════ */
+function goToRoot(rootName) {
+  currentPage = 'roots';
+  document.querySelectorAll('.page-nav-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.page === 'roots')
+  );
+  document.getElementById('page-words').classList.add('hidden');
+  document.getElementById('page-roots').classList.remove('hidden');
+
+  syncRootsFromWords();
+  deduplicateRoots();
+
+  rootSearchQuery = rootName;
+  rootDoneFilter  = 'all';
+  rootOriginFlt   = 'all';
+  document.getElementById('inRootSearch').value = rootName;
+  document.getElementById('btnClearRootSearch').classList.add('show');
+  document.getElementById('rootOriginFilter').value = 'all';
+  document.querySelectorAll('#page-roots .tab-btn').forEach(b => {
+    const active = b.dataset.done === 'all';
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', String(active));
+  });
+
+  renderRoots();
+
+  requestAnimationFrame(() => {
+    const card = document.querySelector('#rootsList .root-card');
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('root-highlight');
+    setTimeout(() => card.classList.remove('root-highlight'), 1800);
+  });
+}
+
+document.getElementById('wordList').addEventListener('click', e => {
+  const link = e.target.closest('.etym-root-link');
+  if (!link) return;
+  e.preventDefault();
+  goToRoot(link.dataset.root);
+});
+
+/* ════════════════════════════════════════════════════
+   페이지 전환
+═══════════════════════════════════════════════════ */
+let currentPage = 'words';
+
+document.querySelectorAll('.page-nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const page = btn.dataset.page;
+    currentPage = page;
+    document.querySelectorAll('.page-nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+    document.getElementById(`page-${page}`).classList.remove('hidden');
+    if (page === 'roots') { syncRootsFromWords(); deduplicateRoots(); renderRoots(); }
+  });
+});
+
+/* ════════════════════════════════════════════════════
+   어근 사전 — 상태 & 로컬 스토리지
+═══════════════════════════════════════════════════ */
+const ROOTS_KEY = 'wordbook_roots_v1';
+let roots           = [];
+let rootSearchQuery = '';
+let rootOriginFlt   = 'all';
+let rootDoneFilter  = 'all';
+let fetchRootsBusy  = false;
+let fetchRootsCtrl  = null;
+
+function loadRootsLocal() {
+  try { return JSON.parse(localStorage.getItem(ROOTS_KEY) || '[]'); }
+  catch { return []; }
+}
+function saveRootsLocal() {
+  localStorage.setItem(ROOTS_KEY, JSON.stringify(roots));
+}
+
+/* ════════════════════════════════════════════════════
+   어근 사전 — 필터링
+═══════════════════════════════════════════════════ */
+function getFilteredRoots() {
+  let list = roots.slice();
+  if (rootOriginFlt !== 'all') list = list.filter(r => r.origin === rootOriginFlt);
+  if (rootDoneFilter === 'done')   list = list.filter(r => r.done);
+  if (rootDoneFilter === 'undone') list = list.filter(r => !r.done);
+  const q = rootSearchQuery.trim().toLowerCase();
+  if (q) list = list.filter(r =>
+    r.root.toLowerCase().includes(q) ||
+    r.meaning.toLowerCase().includes(q) ||
+    r.examples.some(e => e.toLowerCase().includes(q))
+  );
+  list.sort((a, b) => a.root.localeCompare(b.root, 'en', { sensitivity: 'base' }));
+  return list;
+}
+
+/* ════════════════════════════════════════════════════
+   어근 사전 — 카드 HTML
+═══════════════════════════════════════════════════ */
+function rootCardHTML(r) {
+  const exHtml = r.examples.length
+    ? `<div class="root-examples">${r.examples.map(e => `<span class="root-example-chip">${esc(e.trim())}</span>`).join('')}</div>`
+    : '';
+  const selOpt = v => ['Latin','Greek','기타'].map(o =>
+    `<option value="${o}"${r.origin===o?' selected':''}>${o}</option>`).join('');
+  return `
+  <div class="root-card${r.done ? ' done' : ''}" data-rid="${r.id}">
+    <div class="root-card-view">
+      <div class="root-header">
+        <div class="chk-wrap">
+          <input type="checkbox" class="chk root-chk" ${r.done ? 'checked' : ''} aria-label="암기 완료">
+        </div>
+        <span class="root-form-text">${esc(r.root)}</span>
+        <span class="root-origin-badge">${esc(r.origin)}</span>
+        <div class="root-actions">
+          <button class="btn-icon btn-edit-root"  title="편집" aria-label="편집">✏️</button>
+          <button class="btn-icon del btn-del-root" title="삭제" aria-label="삭제">🗑️</button>
+        </div>
+      </div>
+      <div class="root-meaning-text">${esc(r.meaning)}</div>
+      ${exHtml}
+    </div>
+    <div class="root-card-edit">
+      <div class="form-two-col">
+        <div class="edit-group">
+          <label class="edit-label">어근 *</label>
+          <input type="text" class="er-root" value="${esc(r.root)}" maxlength="50">
+          <p class="err-msg" style="display:none">어근을 입력해 주세요.</p>
+        </div>
+        <div class="edit-group">
+          <label class="edit-label">기원</label>
+          <select class="sort-select er-origin" style="width:100%">${selOpt(r.origin)}</select>
+        </div>
+      </div>
+      <div class="edit-group">
+        <label class="edit-label">뜻 *</label>
+        <input type="text" class="er-meaning" value="${esc(r.meaning)}" maxlength="200">
+        <p class="err-msg" style="display:none">뜻을 입력해 주세요.</p>
+      </div>
+      <div class="edit-group">
+        <label class="edit-label">예시 단어 (쉼표 구분)</label>
+        <input type="text" class="er-examples" value="${esc(r.examples.join(', '))}" maxlength="400">
+      </div>
+      <div class="edit-actions">
+        <button class="btn btn-ghost btn-cancel-root">취소</button>
+        <button class="btn btn-success btn-save-root">저장</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ════════════════════════════════════════════════════
+   어근 사전 — 렌더링
+═══════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════
+   단어장 어근 파싱 & 동기화
+═══════════════════════════════════════════════════ */
+function parseEtymologyFormula(etym) {
+  const formula = typeof etym === 'string' ? etym : (etym?.formula || String(etym || ''));
+  if (!formula) return [];
+
+  const eqIdx = formula.indexOf('=');
+  if (eqIdx === -1) return [];
+  const rest = formula.slice(eqIdx + 1);
+
+  /* + 기호 기준으로 분리 (괄호 안 제외) */
+  const parts = [];
+  let depth = 0, cur = '';
+  for (const ch of rest) {
+    if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+    else if (ch === '+' && depth === 0) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur) parts.push(cur);
+
+  return parts.flatMap(part => {
+    const pi = part.lastIndexOf('(');
+    const pe = part.lastIndexOf(')');
+    if (pi === -1 || pe === -1) return [];
+    const meaning = part.slice(pi + 1, pe).trim();
+    const prefix  = part.slice(0, pi);
+    const li      = prefix.lastIndexOf('<');
+    const root    = (li !== -1 ? prefix.slice(li + 1) : prefix).trim();
+    return root && meaning ? [{ root, meaning }] : [];
+  });
+}
+
+function deduplicateRoots() {
+  const seen = new Map();
+  const deduped = [];
+  for (const r of roots) {
+    const key = r.root.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, r);
+      deduped.push(r);
+    } else {
+      const existing = seen.get(key);
+      for (const ex of r.examples) {
+        if (!existing.examples.includes(ex)) existing.examples.push(ex);
+      }
+    }
+  }
+  if (deduped.length !== roots.length) {
+    roots = deduped;
+    saveRootsLocal();
+  }
+}
+
+function syncRootsFromWords() {
+  const existingMap = new Map(roots.map(r => [r.root.toLowerCase(), r]));
+  let added = 0;
+
+  for (const w of words) {
+    if (!w.etymology) continue;
+    for (const { root, meaning } of parseEtymologyFormula(w.etymology)) {
+      const key = root.toLowerCase();
+      if (existingMap.has(key)) {
+        const r = existingMap.get(key);
+        if (!r.examples.includes(w.word)) r.examples.push(w.word);
+      } else {
+        const newRoot = {
+          id: crypto.randomUUID(),
+          root, meaning,
+          origin: '기타',
+          examples: [w.word],
+          done: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+        roots.push(newRoot);
+        existingMap.set(key, newRoot);
+        added++;
+      }
+    }
+  }
+
+  if (added > 0) saveRootsLocal();
+  return added;
+}
+
+function updateRootsCount() {
+  const done = roots.filter(r => r.done).length;
+  const el = document.getElementById('rootsCount');
+  if (!el) return;
+  el.textContent = roots.length === 0
+    ? '0개의 어근'
+    : `${roots.length}개의 어근 (${done}개 완료)`;
+}
+
+function renderRoots() {
+  const list      = getFilteredRoots();
+  const rootsList = document.getElementById('rootsList');
+  updateRootsCount();
+
+  if (roots.length === 0) {
+    rootsList.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🌱</div>
+        <p class="empty-title">아직 어근이 없습니다.</p>
+        <p class="empty-sub">AI로 불러오기 버튼으로 주요 어근을 가져오세요.</p>
+      </div>`;
+    return;
+  }
+  if (list.length === 0) {
+    rootsList.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🔍</div>
+        <p class="empty-title">해당하는 어근이 없습니다.</p>
+        <p class="empty-sub">다른 검색어를 시도해 보세요.</p>
+      </div>`;
+    return;
+  }
+  rootsList.innerHTML = list.map(rootCardHTML).join('');
+  list.forEach(r => bindRootCard(r.id));
+}
+
+/* ════════════════════════════════════════════════════
+   어근 사전 — 카드 이벤트 바인딩
+═══════════════════════════════════════════════════ */
+function bindRootCard(id) {
+  const rootsList = document.getElementById('rootsList');
+  const card = rootsList.querySelector(`[data-rid="${id}"]`);
+  if (!card) return;
+
+  card.querySelector('.root-chk').addEventListener('change', e => {
+    const r = roots.find(r => r.id === id);
+    if (!r) return;
+    r.done = e.target.checked;
+    r.updatedAt = Date.now();
+    saveRootsLocal();
+    card.classList.toggle('done', r.done);
+    updateRootsCount();
+  });
+
+  card.querySelector('.btn-edit-root').addEventListener('click', () => {
+    card.classList.add('editing');
+    card.querySelector('.er-root').focus();
+  });
+
+  card.querySelector('.btn-del-root').addEventListener('click', () => {
+    if (!confirm('삭제할까요?')) return;
+    roots = roots.filter(r => r.id !== id);
+    saveRootsLocal();
+    renderRoots();
+  });
+
+  card.querySelector('.btn-cancel-root').addEventListener('click', () => {
+    card.classList.remove('editing');
+  });
+
+  card.querySelector('.btn-save-root').addEventListener('click', () => commitRootEdit(id, card));
+
+  card.addEventListener('keydown', e => {
+    if (!card.classList.contains('editing')) return;
+    if (e.key === 'Escape') card.classList.remove('editing');
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitRootEdit(id, card); }
+  });
+}
+
+function commitRootEdit(id, card) {
+  const rootEl     = card.querySelector('.er-root');
+  const meaningEl  = card.querySelector('.er-meaning');
+  const originEl   = card.querySelector('.er-origin');
+  const examplesEl = card.querySelector('.er-examples');
+  const errEls     = card.querySelectorAll('.root-card-edit .err-msg');
+  let valid = true;
+
+  if (!rootEl.value.trim()) {
+    rootEl.classList.add('err'); errEls[0].style.display = 'block'; valid = false;
+  } else { rootEl.classList.remove('err'); errEls[0].style.display = 'none'; }
+
+  if (!meaningEl.value.trim()) {
+    meaningEl.classList.add('err'); errEls[1].style.display = 'block'; valid = false;
+  } else { meaningEl.classList.remove('err'); errEls[1].style.display = 'none'; }
+
+  if (!valid) return;
+
+  const r = roots.find(r => r.id === id);
+  if (r) {
+    r.root      = rootEl.value.trim();
+    r.meaning   = meaningEl.value.trim();
+    r.origin    = originEl.value;
+    r.examples  = examplesEl.value.split(',').map(e => e.trim()).filter(Boolean);
+    r.updatedAt = Date.now();
+    saveRootsLocal();
+    renderRoots();
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   어근 추가 폼 이벤트
+═══════════════════════════════════════════════════ */
+document.getElementById('btnSyncWords').addEventListener('click', () => {
+  const added = syncRootsFromWords();
+  renderRoots();
+  const btn = document.getElementById('btnSyncWords');
+  btn.textContent = added > 0 ? `✅ ${added}개 추가됨` : '✅ 이미 최신';
+  setTimeout(() => { btn.textContent = '🔄 단어장 동기화'; }, 2500);
+});
+
+document.getElementById('btnAddRoot').addEventListener('click', () => {
+  const form = document.getElementById('addRootForm');
+  form.classList.toggle('show');
+  if (form.classList.contains('show')) document.getElementById('inRootWord').focus();
+});
+
+document.getElementById('btnCancelAddRoot').addEventListener('click', () => {
+  document.getElementById('addRootForm').classList.remove('show');
+  clearAddRootForm();
+});
+
+document.getElementById('btnSaveRoot').addEventListener('click', saveNewRoot);
+document.getElementById('inRootWord').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); saveNewRoot(); }
+});
+
+function saveNewRoot() {
+  const rootVal    = document.getElementById('inRootWord').value.trim();
+  const meaningVal = document.getElementById('inRootMeaning').value.trim();
+  const originVal  = document.getElementById('inRootOrigin').value;
+  const examplesVal = document.getElementById('inRootExamples').value
+    .split(',').map(e => e.trim()).filter(Boolean);
+
+  const errRW = document.getElementById('errRootWord');
+  const errRM = document.getElementById('errRootMeaning');
+  let valid = true;
+
+  if (!rootVal) {
+    document.getElementById('inRootWord').classList.add('err');
+    errRW.classList.add('show'); valid = false;
+  } else {
+    document.getElementById('inRootWord').classList.remove('err');
+    errRW.classList.remove('show');
+  }
+  if (!meaningVal) {
+    document.getElementById('inRootMeaning').classList.add('err');
+    errRM.classList.add('show'); valid = false;
+  } else {
+    document.getElementById('inRootMeaning').classList.remove('err');
+    errRM.classList.remove('show');
+  }
+  if (!valid) return;
+
+  roots.unshift({
+    id: crypto.randomUUID(), root: rootVal, origin: originVal,
+    meaning: meaningVal, examples: examplesVal, done: false,
+    createdAt: Date.now(), updatedAt: Date.now(),
+  });
+  saveRootsLocal();
+  clearAddRootForm();
+  document.getElementById('addRootForm').classList.remove('show');
+  renderRoots();
+}
+
+function clearAddRootForm() {
+  ['inRootWord','inRootMeaning','inRootExamples'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = ''; el.classList.remove('err');
+  });
+  document.getElementById('errRootWord').classList.remove('show');
+  document.getElementById('errRootMeaning').classList.remove('show');
+}
+
+/* ════════════════════════════════════════════════════
+   검색 / 필터 이벤트
+═══════════════════════════════════════════════════ */
+document.querySelectorAll('#page-roots .tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#page-roots .tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    rootDoneFilter = btn.dataset.done;
+    renderRoots();
+  });
+});
+
+document.getElementById('inRootSearch').addEventListener('input', function () {
+  rootSearchQuery = this.value;
+  document.getElementById('btnClearRootSearch').classList.toggle('show', !!rootSearchQuery);
+  renderRoots();
+});
+document.getElementById('btnClearRootSearch').addEventListener('click', () => {
+  rootSearchQuery = '';
+  document.getElementById('inRootSearch').value = '';
+  document.getElementById('btnClearRootSearch').classList.remove('show');
+  renderRoots();
+});
+document.getElementById('rootOriginFilter').addEventListener('change', function () {
+  rootOriginFlt = this.value;
+  renderRoots();
+});
+
+/* ════════════════════════════════════════════════════
+   AI로 어근 배치 불러오기
+═══════════════════════════════════════════════════ */
+const ROOT_BATCHES = [
+  {
+    label: 'Latin 어근 (1/4)',
+    prompt:
+      'List exactly 25 of the most common Latin roots used in English vocabulary.\n' +
+      'Return ONLY this JSON, no markdown, no explanation:\n' +
+      '{"roots":[{"root":"port","origin":"Latin","meaning":"carry, bring","examples":["transport","export","import","portable","report"]}]}\n' +
+      'Rules: origin must be "Latin", meaning in English, examples are real English words.',
+  },
+  {
+    label: 'Latin 어근 (2/4)',
+    prompt:
+      'List exactly 25 more common Latin roots in English. Avoid: port, dict, rupt, script, struct, duct, aud, vis, spec, mit, pos, ten, tract, vert, fac, fer, jec, scrib, cred, mort, cap, grad, lect, pend, vert.\n' +
+      'Return ONLY this JSON, no markdown:\n' +
+      '{"roots":[{"root":"ped","origin":"Latin","meaning":"foot","examples":["pedestrian","pedal","expedite","impede"]}]}\n' +
+      'Rules: origin must be "Latin", meaning in English, examples are real English words.',
+  },
+  {
+    label: 'Greek 어근 (3/4)',
+    prompt:
+      'List exactly 25 of the most common Greek roots used in English vocabulary.\n' +
+      'Return ONLY this JSON, no markdown, no explanation:\n' +
+      '{"roots":[{"root":"graph","origin":"Greek","meaning":"write, draw","examples":["graphic","biography","photograph","paragraph"]}]}\n' +
+      'Rules: origin must be "Greek", meaning in English, examples are real English words.',
+  },
+  {
+    label: 'Greek 어근 (4/4)',
+    prompt:
+      'List exactly 25 more common Greek roots in English. Avoid: graph, log, phon, bio, geo, therm, chron, path, hydr, micro, tele, auto, anti, poly, mono, morph, scop, astro, cycl, dem, psych, derm, nom, onym, phob.\n' +
+      'Return ONLY this JSON, no markdown:\n' +
+      '{"roots":[{"root":"lysis","origin":"Greek","meaning":"loosening, breaking down","examples":["analysis","paralysis","electrolysis"]}]}\n' +
+      'Rules: origin must be "Greek", meaning in English, examples are real English words.',
+  },
+];
+
+document.getElementById('btnFetchRoots').addEventListener('click', async () => {
+  if (fetchRootsBusy) return;
+  fetchRootsBusy = true;
+  fetchRootsCtrl = new AbortController();
+  const { signal } = fetchRootsCtrl;
+
+  const bar    = document.getElementById('rootsFetchBar');
+  const info   = document.getElementById('rootsFetchInfo');
+  const status = document.getElementById('rootsFetchStatus');
+  const btnFetch = document.getElementById('btnFetchRoots');
+  bar.style.display = 'flex';
+  btnFetch.disabled = true;
+
+  let totalAdded = 0;
+  try {
+    for (let i = 0; i < ROOT_BATCHES.length; i++) {
+      if (signal.aborted) break;
+      const batch = ROOT_BATCHES[i];
+      info.textContent   = `${batch.label} 불러오는 중...`;
+      status.textContent = '';
+
+      let result = null;
+      for (const model of LOOKUP_MODELS) {
+        if (signal.aborted) break;
+        try {
+          result = await callOpenRouter(batch.prompt, 2500, model, signal);
+          break;
+        } catch (e) {
+          if (e.name === 'AbortError') break;
+          console.warn(`[fetchRoots] ${model} 실패:`, e.message);
+        }
+      }
+
+      if (result?.roots && Array.isArray(result.roots)) {
+        const existing = new Set(roots.map(r => r.root.toLowerCase()));
+        const newRoots = result.roots
+          .filter(r => r.root && r.meaning)
+          .filter(r => !existing.has(r.root.toLowerCase()))
+          .map(r => ({
+            id: crypto.randomUUID(),
+            root: r.root,
+            origin: r.origin || 'Latin',
+            meaning: r.meaning,
+            examples: Array.isArray(r.examples) ? r.examples : [],
+            done: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }));
+        roots = [...roots, ...newRoots];
+        totalAdded += newRoots.length;
+        saveRootsLocal();
+        status.textContent = `${newRoots.length}개 추가 (누계 ${totalAdded}개)`;
+        if (currentPage === 'roots') renderRoots();
+      }
+    }
+    info.textContent   = signal.aborted
+      ? `중단됨 — 총 ${totalAdded}개 추가됨`
+      : `완료! 총 ${totalAdded}개의 어근을 추가했습니다.`;
+    status.textContent = '';
+    setTimeout(() => { bar.style.display = 'none'; }, 3000);
+  } catch (e) {
+    info.textContent = '불러오기 오류: ' + e.message;
+    setTimeout(() => { bar.style.display = 'none'; }, 4000);
+  } finally {
+    fetchRootsBusy = false;
+    fetchRootsCtrl = null;
+    btnFetch.disabled = false;
+  }
+});
+
+document.getElementById('btnStopFetch').addEventListener('click', () => {
+  if (fetchRootsCtrl) { fetchRootsCtrl.abort(); fetchRootsCtrl = null; }
+  fetchRootsBusy = false;
+  document.getElementById('btnFetchRoots').disabled = false;
+});
+
+/* ════════════════════════════════════════════════════
+   어근 초기화
+═══════════════════════════════════════════════════ */
+roots = loadRootsLocal();
+deduplicateRoots();
 </script>
 </body>
 </html>
