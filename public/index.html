@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>단어 암기장</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
   <style>
     /* ── 토큰 ──────────────────────────────────────────────── */
     :root {
@@ -73,6 +74,26 @@
     }
     .congrats { display: none; text-align: center; margin-top: var(--sp-sm); font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-success); }
     .congrats.show { display: block; }
+
+    /* ── 드래그 핸들 ──────────────────────────────────────── */
+    .drag-handle {
+      display: none;
+      cursor: grab;
+      color: var(--c-text-light);
+      font-size: 18px;
+      padding: 0 6px 0 2px;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      user-select: none;
+      touch-action: none;
+      line-height: 1;
+    }
+    .drag-handle:active { cursor: grabbing; }
+    #wordList.reorder-mode   .drag-handle,
+    #rootsList.reorder-mode  .drag-handle { display: flex; }
+    .sortable-ghost { opacity: .4; background: var(--c-primary-light); border-radius: var(--r-md); }
+    .sortable-drag  { box-shadow: 0 8px 24px rgba(0,0,0,.15); }
 
     /* ── 데이터 툴바 (내보내기 / 가져오기) ───────────────────── */
     .data-bar {
@@ -349,16 +370,8 @@
       display: flex; align-items: center; justify-content: space-between;
       flex-wrap: wrap; gap: var(--sp-sm); margin-bottom: var(--sp-lg);
     }
-    .roots-header-actions { display: flex; gap: var(--sp-sm); }
-
-    .roots-fetch-bar {
-      background: var(--c-surface); border: 1px solid var(--c-border);
-      border-radius: var(--r-lg); padding: var(--sp-md) var(--sp-lg);
-      margin-bottom: var(--sp-lg); box-shadow: var(--shadow-sm);
-      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-md);
-    }
-    .roots-fetch-info   { font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: var(--fw-medium); }
-    .roots-fetch-status { font-size: var(--fs-xs); color: var(--c-text-muted); margin-top: 2px; }
+    .roots-header-actions { display: flex; gap: var(--sp-xs); flex-wrap: wrap; align-items: center; }
+    #btnRootReorder.active { background: var(--c-primary-light); color: var(--c-primary); font-weight: var(--fw-semibold); }
 
     .add-root-form {
       background: var(--c-surface); border: 1px solid var(--c-border);
@@ -367,9 +380,25 @@
     }
     .add-root-form.show { display: block; }
 
-    .roots-toolbar {
-      display: flex; gap: var(--sp-sm); align-items: center; margin-bottom: var(--sp-sm);
+    /* 검색 바 */
+    .root-search-bar { margin-bottom: var(--sp-sm); }
+
+    /* 필터 바 (완료상태 + 기원 + 북마크) */
+    .roots-filter-bar {
+      display: flex; align-items: center; gap: var(--sp-sm);
+      flex-wrap: wrap; margin-bottom: var(--sp-md);
     }
+    .filter-chip-group {
+      display: inline-flex; gap: 2px;
+      background: var(--c-surface-2); border-radius: var(--r-md);
+      padding: 2px; border: 1px solid var(--c-border);
+    }
+    .filter-chip-group .tab-btn { flex: none; padding: 5px var(--sp-sm); }
+    .filter-sep {
+      width: 1px; height: 22px; background: var(--c-border);
+      flex-shrink: 0; align-self: center;
+    }
+
     .roots-count { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--c-text-muted); margin-bottom: var(--sp-md); }
 
     .roots-grid { display: flex; flex-direction: column; gap: var(--sp-md); }
@@ -386,13 +415,23 @@
     .root-card.editing .root-card-view { display: none; }
     .root-card.editing .root-card-edit { display: block; }
 
-    .root-header { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
+    .root-header {
+      display: flex; align-items: center; gap: var(--sp-sm);
+      margin-bottom: var(--sp-sm); flex-wrap: wrap;
+    }
+    /* drag + chk 고정 너비 묶음 */
+    .root-header-left { display: flex; align-items: center; gap: var(--sp-xs); flex-shrink: 0; }
+    /* 어근명 + variants + 기원 뱃지 */
+    .root-info {
+      flex: 1; display: flex; align-items: center; flex-wrap: wrap;
+      gap: 4px var(--sp-xs); min-width: 0;
+    }
     .root-form-text { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); }
     .root-variant {
       font-size: var(--fs-lg); font-weight: var(--fw-semibold);
       color: var(--c-primary); opacity: .6;
     }
-    .root-variant::before { content: ' · '; }
+    .root-variant::before { content: '·\00a0'; }
     .root-origin-badge {
       font-size: var(--fs-xs); font-weight: var(--fw-semibold);
       padding: 2px var(--sp-sm); border-radius: var(--r-full);
@@ -426,7 +465,7 @@
     }
     .etym-root-link:hover { text-decoration-style: solid; }
 
-    /* ── 필터 행 (탭 + 북마크 이동 버튼) ───────────────────── */
+    /* ── 필터 행 (암기장 탭 + 북마크 이동) ───────────────────── */
     .filter-row { display: flex; align-items: center; gap: var(--sp-sm); margin-bottom: var(--sp-sm); }
     .filter-row .filter-tabs { flex: 1; margin-bottom: 0; }
 
@@ -462,6 +501,29 @@
       .sort-select  { width: 100%; }
       .card-actions { gap: 2px; }
       .btn-etym     { padding: 2px var(--sp-xs); }
+
+      /* 어근 사전 헤더 */
+      .roots-page-header { gap: var(--sp-xs); margin-bottom: var(--sp-md); }
+      .roots-header-actions .btn { font-size: var(--fs-xs); padding: 4px 10px; }
+      #btnSyncWords .sync-label { display: none; }   /* 아이콘만 */
+
+      /* 어근 카드 */
+      .root-card { padding: var(--sp-md); }
+      .root-form-text { font-size: var(--fs-xl); }
+      .root-variant   { font-size: var(--fs-sm); }
+      .root-meaning-text { font-size: var(--fs-sm); }
+      .root-example-chip { font-size: var(--fs-xs); }
+      .chip-ko { font-size: 10px; }
+      .root-actions { gap: 2px; }
+      .btn-icon { width: 30px; height: 30px; font-size: 14px; }
+
+      /* 필터 바 모바일 */
+      .roots-filter-bar { gap: var(--sp-xs); }
+      .filter-chip-group .tab-btn { padding: 4px var(--sp-sm); font-size: var(--fs-xs); }
+      .filter-sep { display: none; }   /* 줄바꿈 시 구분선 불필요 */
+
+      /* 어근 추가 폼 */
+      .add-root-form { padding: var(--sp-md); }
     }
   </style>
 </head>
@@ -553,6 +615,7 @@
       <option value="newest">최신순</option>
       <option value="oldest">오래된순</option>
       <option value="alpha" selected>가나다순</option>
+      <option value="manual">수동 정렬</option>
       <option value="undone">미완료 우선</option>
     </select>
   </div>
@@ -571,19 +634,9 @@
         <h1 class="app-title">어근 <span>사전</span></h1>
         <div class="roots-header-actions">
           <button class="btn btn-ghost btn-sm" id="btnSyncWords">🔄 단어장 동기화</button>
-          <button class="btn btn-ghost btn-sm" id="btnMergeRoots">🔗 유사 어근 합치기</button>
-          <button class="btn btn-ghost btn-sm" id="btnFillMeanings">📝 예시 뜻 채우기</button>
+          <button class="btn btn-ghost btn-sm" id="btnRootReorder">⠿ 순서 편집</button>
           <button class="btn btn-ghost btn-sm" id="btnAddRoot">+ 어근 추가</button>
-          <button class="btn btn-primary btn-sm" id="btnFetchRoots">✨ AI로 불러오기</button>
         </div>
-      </div>
-      <!-- AI 불러오기 진행 표시 -->
-      <div class="roots-fetch-bar" id="rootsFetchBar" style="display:none">
-        <div>
-          <div class="roots-fetch-info"  id="rootsFetchInfo">불러오는 중...</div>
-          <div class="roots-fetch-status" id="rootsFetchStatus"></div>
-        </div>
-        <button class="btn btn-ghost btn-sm" id="btnStopFetch">중단</button>
       </div>
     </header>
 
@@ -624,27 +677,28 @@
       </div>
     </section>
 
-    <!-- 검색 + 필터 -->
-    <div class="roots-toolbar">
-      <div class="search-wrap" style="flex:1">
+    <!-- 검색 -->
+    <div class="root-search-bar">
+      <div class="search-wrap">
         <span class="ico" aria-hidden="true">🔍</span>
         <input type="text" id="inRootSearch" placeholder="어근, 뜻, 예시 단어 검색...">
         <button class="btn-clear-search" id="btnClearRootSearch" aria-label="검색 초기화">✕</button>
       </div>
-      <select class="sort-select" id="rootOriginFilter" aria-label="기원 필터">
-        <option value="all">전체</option>
-        <option value="Latin">Latin</option>
-        <option value="Greek">Greek</option>
-        <option value="기타">기타</option>
-      </select>
     </div>
 
-    <!-- 완료 필터 탭 -->
-    <div class="filter-row">
-      <div class="filter-tabs" role="tablist" aria-label="어근 필터">
+    <!-- 필터 바 (완료 상태 + 어원 + 북마크) -->
+    <div class="roots-filter-bar">
+      <div class="filter-chip-group" role="tablist" aria-label="암기 상태">
         <button class="tab-btn active" data-done="all"    role="tab" aria-selected="true">전체</button>
         <button class="tab-btn"        data-done="undone" role="tab" aria-selected="false">미완료</button>
         <button class="tab-btn"        data-done="done"   role="tab" aria-selected="false">완료</button>
+      </div>
+      <div class="filter-sep" aria-hidden="true"></div>
+      <div class="filter-chip-group" role="tablist" aria-label="어원">
+        <button class="tab-btn active" data-origin="all"   role="tab" aria-selected="true">전체</button>
+        <button class="tab-btn"        data-origin="Latin" role="tab" aria-selected="false">Latin</button>
+        <button class="tab-btn"        data-origin="Greek" role="tab" aria-selected="false">Greek</button>
+        <button class="tab-btn"        data-origin="기타"   role="tab" aria-selected="false">기타</button>
       </div>
       <button class="btn btn-ghost btn-sm" id="btnJumpRootBookmark" style="display:none;flex-shrink:0">📍 이동</button>
     </div>
@@ -808,7 +862,37 @@ async function callOpenRouter(prompt, maxTokens = 800, model, signal) {
 let words       = [];
 let filter      = 'all';
 let searchQuery = '';
-let sortOrder   = 'alpha';
+let sortOrder   = localStorage.getItem('wordbook_sort') || 'alpha';
+
+const WORD_ORDER_KEY = 'wordbook_word_order';
+let wordManualOrder  = JSON.parse(localStorage.getItem(WORD_ORDER_KEY) || '[]');
+let wordSortable     = null;
+
+function saveWordManualOrder(ids) {
+  wordManualOrder = ids;
+  localStorage.setItem(WORD_ORDER_KEY, JSON.stringify(ids));
+}
+function initWordSortable() {
+  const el = document.getElementById('wordList');
+  if (wordSortable) { wordSortable.destroy(); wordSortable = null; }
+  wordSortable = Sortable.create(el, {
+    handle: '.drag-handle',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    onEnd: () => {
+      const newVisible = [...el.querySelectorAll('[data-id]')].map(c => c.dataset.id);
+      const visibleSet = new Set(newVisible);
+      const rest = wordManualOrder.filter(id => !visibleSet.has(id));
+      saveWordManualOrder([...newVisible, ...rest]);
+    },
+  });
+  el.classList.add('reorder-mode');
+}
+function destroyWordSortable() {
+  if (wordSortable) { wordSortable.destroy(); wordSortable = null; }
+  document.getElementById('wordList').classList.remove('reorder-mode');
+}
 
 /* ════════════════════════════════════════════════════
    DOM 참조
@@ -884,6 +968,11 @@ function getFiltered() {
     case 'oldest': list.sort((a, b) => a.createdAt - b.createdAt); break;
     case 'alpha':  list.sort((a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' })); break;
     case 'undone': list.sort((a, b) => Number(a.done) - Number(b.done)); break;
+    case 'manual': {
+      const om = new Map(wordManualOrder.map((id, i) => [id, i]));
+      list.sort((a, b) => (om.has(a.id) ? om.get(a.id) : 99999) - (om.has(b.id) ? om.get(b.id) : 99999));
+      break;
+    }
     default:       list.sort((a, b) => b.createdAt - a.createdAt); /* newest */
   }
 
@@ -903,6 +992,7 @@ function cardHTML(w) {
   <article class="card${w.done ? ' done' : ''}${w.id === wordBookmarkId ? ' bookmarked' : ''}" data-id="${w.id}">
     <div class="card-view">
       <div class="card-header">
+        <span class="drag-handle" title="드래그하여 순서 변경" aria-hidden="true">⠿</span>
         <div class="chk-wrap">
           <input type="checkbox" class="chk" ${w.done ? 'checked' : ''} aria-label="암기 완료">
         </div>
@@ -989,6 +1079,9 @@ function render() {
   list.forEach(w => bindCard(w.id));
   const jumpW = document.getElementById('btnJumpWordBookmark');
   if (jumpW) jumpW.style.display = wordBookmarkId && words.some(w => w.id === wordBookmarkId) ? '' : 'none';
+
+  if (sortOrder === 'manual') initWordSortable();
+  else destroyWordSortable();
 }
 
 /* ════════════════════════════════════════════════════
@@ -1600,6 +1693,10 @@ btnClearSearch.addEventListener('click', () => {
 /* 정렬 */
 sortSelect.addEventListener('change', () => {
   sortOrder = sortSelect.value;
+  localStorage.setItem('wordbook_sort', sortOrder);
+  if (sortOrder === 'manual' && !wordManualOrder.length) {
+    saveWordManualOrder(words.map(w => w.id));
+  }
   render();
 });
 
@@ -1619,6 +1716,8 @@ fileInput.addEventListener('change', () => {
 ═══════════════════════════════════════════════════ */
 (async () => {
   words = await sbLoad();
+  sortSelect.value = sortOrder;
+  if (sortOrder === 'manual' && !wordManualOrder.length) saveWordManualOrder(words.map(w => w.id));
   render();
   updateStatus();
   words.filter(w => !w.etymology).forEach(w => queueEtymology(w.id));
@@ -1635,17 +1734,22 @@ function goToRoot(rootName) {
   document.getElementById('page-words').classList.add('hidden');
   document.getElementById('page-roots').classList.remove('hidden');
 
-  syncRootsFromWords();
-  deduplicateRoots();
+  syncRootsFromWords(); seedEmbeddedRoots(); deduplicateRoots();
+  scheduleAutoFill();
+  autoMergeOnce();
 
   rootSearchQuery = rootName;
   rootDoneFilter  = 'all';
   rootOriginFlt   = 'all';
   document.getElementById('inRootSearch').value = rootName;
   document.getElementById('btnClearRootSearch').classList.add('show');
-  document.getElementById('rootOriginFilter').value = 'all';
-  document.querySelectorAll('#page-roots .tab-btn').forEach(b => {
+  document.querySelectorAll('#page-roots [data-done]').forEach(b => {
     const active = b.dataset.done === 'all';
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('#page-roots [data-origin]').forEach(b => {
+    const active = b.dataset.origin === 'all';
     b.classList.toggle('active', active);
     b.setAttribute('aria-selected', String(active));
   });
@@ -1681,7 +1785,11 @@ document.querySelectorAll('.page-nav-btn').forEach(btn => {
     btn.classList.add('active');
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     document.getElementById(`page-${page}`).classList.remove('hidden');
-    if (page === 'roots') { syncRootsFromWords(); deduplicateRoots(); renderRoots(); }
+    if (page === 'roots') {
+      syncRootsFromWords(); seedEmbeddedRoots(); deduplicateRoots(); renderRoots();
+      scheduleAutoFill();
+      autoMergeOnce();
+    }
   });
 });
 
@@ -1693,8 +1801,33 @@ let roots           = [];
 let rootSearchQuery = '';
 let rootOriginFlt   = 'all';
 let rootDoneFilter  = 'all';
-let fetchRootsBusy  = false;
-let fetchRootsCtrl  = null;
+let rootManualMode  = localStorage.getItem('wordbook_root_manual') === 'true';
+let rootSortable    = null;
+
+function initRootSortable() {
+  const el = document.getElementById('rootsList');
+  if (rootSortable) { rootSortable.destroy(); rootSortable = null; }
+  rootSortable = Sortable.create(el, {
+    handle: '.drag-handle',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    onEnd: () => {
+      const newVisible = [...el.querySelectorAll('[data-rid]')].map(c => c.dataset.rid);
+      const visibleSet = new Set(newVisible);
+      const rest = roots.filter(r => !visibleSet.has(r.id));
+      const reordered = newVisible.map(id => roots.find(r => r.id === id)).filter(Boolean);
+      roots = [...reordered, ...rest];
+      saveRootsLocal();
+    },
+  });
+  el.classList.add('reorder-mode');
+}
+function destroyRootSortable() {
+  if (rootSortable) { rootSortable.destroy(); rootSortable = null; }
+  const el = document.getElementById('rootsList');
+  if (el) el.classList.remove('reorder-mode');
+}
 
 const WORD_BM_KEY = 'wordbook_word_bm';
 const ROOT_BM_KEY = 'wordbook_root_bm';
@@ -1724,7 +1857,9 @@ function getFilteredRoots() {
     r.examples.some(e => e.toLowerCase().includes(q)) ||
     (r.variants||[]).some(v => v.toLowerCase().includes(q))
   );
-  list.sort((a, b) => a.root.localeCompare(b.root, 'en', { sensitivity: 'base' }));
+  if (!rootManualMode) {
+    list.sort((a, b) => a.root.localeCompare(b.root, 'en', { sensitivity: 'base' }));
+  }
   return list;
 }
 
@@ -1744,12 +1879,17 @@ function rootCardHTML(r) {
   <div class="root-card${r.done ? ' done' : ''}${r.id === rootBookmarkId ? ' bookmarked' : ''}" data-rid="${r.id}">
     <div class="root-card-view">
       <div class="root-header">
-        <div class="chk-wrap">
-          <input type="checkbox" class="chk root-chk" ${r.done ? 'checked' : ''} aria-label="암기 완료">
+        <div class="root-header-left">
+          <span class="drag-handle" title="드래그하여 순서 변경" aria-hidden="true">⠿</span>
+          <div class="chk-wrap">
+            <input type="checkbox" class="chk root-chk" ${r.done ? 'checked' : ''} aria-label="암기 완료">
+          </div>
         </div>
-        <span class="root-form-text">${esc(r.root)}</span>
-        ${(r.variants||[]).map(v=>`<span class="root-variant">${esc(v)}</span>`).join('')}
-        <span class="root-origin-badge">${esc(r.origin)}</span>
+        <div class="root-info">
+          <span class="root-form-text">${esc(r.root)}</span>
+          ${(r.variants||[]).map(v=>`<span class="root-variant">${esc(v)}</span>`).join('')}
+          <span class="root-origin-badge">${esc(r.origin)}</span>
+        </div>
         <div class="root-actions">
           <button class="btn-icon btn-bookmark${r.id === rootBookmarkId ? ' active' : ''}" title="북마크" aria-label="북마크">🔖</button>
           <button class="btn-icon btn-edit-root"  title="편집" aria-label="편집">✏️</button>
@@ -1853,15 +1993,28 @@ function deduplicateRoots() {
 }
 
 function syncRootsFromWords() {
-  const existingMap = new Map(roots.map(r => [r.root.toLowerCase(), r]));
-  let added = 0;
+  // variant-aware 맵: root 및 모든 variant 형태 → 대표 root 항목
+  const formToRoot = new Map();
+  for (const r of roots) {
+    formToRoot.set(r.root.toLowerCase(), r);
+    for (const v of (r.variants || [])) formToRoot.set(v.toLowerCase(), r);
+  }
+  // EMBEDDED_ROOTS_DATA의 variant 매핑도 보완 (아직 localStorage에 없는 대표 어근 포함)
+  for (const data of EMBEDDED_ROOTS_DATA) {
+    const primary = formToRoot.get(data.root.toLowerCase());
+    if (!primary) continue;
+    for (const v of (data.variants || [])) {
+      if (!formToRoot.has(v.toLowerCase())) formToRoot.set(v.toLowerCase(), primary);
+    }
+  }
 
+  let added = 0;
   for (const w of words) {
     if (!w.etymology) continue;
     for (const { root, meaning } of parseEtymologyFormula(w.etymology)) {
       const key = root.toLowerCase();
-      if (existingMap.has(key)) {
-        const r = existingMap.get(key);
+      const r = formToRoot.get(key);
+      if (r) {
         if (!r.examples.includes(w.word)) r.examples.push(w.word);
         r.exampleMeanings = r.exampleMeanings || {};
         r.exampleMeanings[w.word.toLowerCase()] = w.meaning.split(/[,、]/)[0].trim();
@@ -1877,7 +2030,7 @@ function syncRootsFromWords() {
           updatedAt: Date.now(),
         };
         roots.push(newRoot);
-        existingMap.set(key, newRoot);
+        formToRoot.set(key, newRoot);
         added++;
       }
     }
@@ -1917,7 +2070,7 @@ function renderRoots() {
       <div class="empty">
         <div class="empty-icon">🌱</div>
         <p class="empty-title">아직 어근이 없습니다.</p>
-        <p class="empty-sub">AI로 불러오기 버튼으로 주요 어근을 가져오세요.</p>
+        <p class="empty-sub">+ 어근 추가 버튼으로 어근을 등록하거나 단어장을 동기화하세요.</p>
       </div>`;
     return;
   }
@@ -1938,6 +2091,15 @@ function renderRoots() {
   list.forEach(r => bindRootCard(r.id));
   const jumpR = document.getElementById('btnJumpRootBookmark');
   if (jumpR) jumpR.style.display = rootBookmarkId && roots.some(r => r.id === rootBookmarkId) ? '' : 'none';
+
+  const reorderBtn = document.getElementById('btnRootReorder');
+  if (rootManualMode) {
+    initRootSortable();
+    if (reorderBtn) reorderBtn.classList.add('active');
+  } else {
+    destroyRootSortable();
+    if (reorderBtn) reorderBtn.classList.remove('active');
+  }
 }
 
 /* ════════════════════════════════════════════════════
@@ -2018,6 +2180,7 @@ function commitRootEdit(id, card) {
     r.updatedAt = Date.now();
     saveRootsLocal();
     renderRoots();
+    scheduleAutoFill();
   }
 }
 
@@ -2112,38 +2275,37 @@ async function mergeSimilarRoots() {
 }
 
 /* ════════════════════════════════════════════════════
-   버튼 이벤트 — 유사 어근 합치기 / 예시 뜻 채우기
+   자동 뜻 채우기 & 유사 어근 자동 병합
 ═══════════════════════════════════════════════════ */
-document.getElementById('btnMergeRoots').addEventListener('click', async () => {
-  const btn = document.getElementById('btnMergeRoots');
-  const bar = document.getElementById('rootsFetchBar');
-  const info = document.getElementById('rootsFetchInfo');
-  btn.disabled = true; bar.style.display = 'flex';
-  info.textContent = '유사 어근 분석 중...';
-  document.getElementById('rootsFetchStatus').textContent = '';
-  const count = await mergeSimilarRoots();
-  info.textContent = count > 0 ? `${count}개 어근 병합 완료` : '병합할 유사 어근이 없습니다';
-  btn.disabled = false; renderRoots();
-  setTimeout(() => { bar.style.display = 'none'; }, 3000);
-});
+let _fillTimer = null;
+function scheduleAutoFill() {
+  clearTimeout(_fillTimer);
+  _fillTimer = setTimeout(async () => {
+    const filled = await fillExampleMeanings();
+    if (filled > 0) renderRoots();
+  }, 800);
+}
 
-document.getElementById('btnFillMeanings').addEventListener('click', async () => {
-  const btn = document.getElementById('btnFillMeanings');
-  const bar = document.getElementById('rootsFetchBar');
-  const info = document.getElementById('rootsFetchInfo');
-  btn.disabled = true; bar.style.display = 'flex';
-  info.textContent = '예시 단어 뜻 채우는 중...';
-  document.getElementById('rootsFetchStatus').textContent = '';
-  syncRootsFromWords();
-  const filled = await fillExampleMeanings();
-  info.textContent = filled > 0 ? `${filled}개 뜻 추가 완료` : '채울 뜻이 없거나 이미 완료됨';
-  btn.disabled = false; renderRoots();
-  setTimeout(() => { bar.style.display = 'none'; }, 3000);
+let _mergeRunThisSession = false;
+async function autoMergeOnce() {
+  if (_mergeRunThisSession) return;
+  _mergeRunThisSession = true;
+  const count = await mergeSimilarRoots();
+  if (count > 0) { seedEmbeddedRoots(); deduplicateRoots(); renderRoots(); }
+}
+
+document.getElementById('btnRootReorder').addEventListener('click', () => {
+  rootManualMode = !rootManualMode;
+  localStorage.setItem('wordbook_root_manual', rootManualMode);
+  renderRoots();
 });
 
 document.getElementById('btnSyncWords').addEventListener('click', () => {
   const added = syncRootsFromWords();
+  seedEmbeddedRoots(); deduplicateRoots();
   renderRoots();
+  scheduleAutoFill();
+  if (added > 0) autoMergeOnce();
   const btn = document.getElementById('btnSyncWords');
   btn.textContent = added > 0 ? `✅ ${added}개 추가됨` : '✅ 이미 최신';
   setTimeout(() => { btn.textContent = '🔄 단어장 동기화'; }, 2500);
@@ -2204,6 +2366,7 @@ function saveNewRoot() {
   clearAddRootForm();
   document.getElementById('addRootForm').classList.remove('show');
   renderRoots();
+  scheduleAutoFill();
 }
 
 function clearAddRootForm() {
@@ -2218,15 +2381,26 @@ function clearAddRootForm() {
 /* ════════════════════════════════════════════════════
    검색 / 필터 이벤트
 ═══════════════════════════════════════════════════ */
-document.querySelectorAll('#page-roots .tab-btn').forEach(btn => {
+/* 완료 상태 필터 */
+document.querySelectorAll('#page-roots [data-done]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('#page-roots .tab-btn').forEach(b => {
-      b.classList.remove('active');
-      b.setAttribute('aria-selected', 'false');
+    document.querySelectorAll('#page-roots [data-done]').forEach(b => {
+      b.classList.remove('active'); b.setAttribute('aria-selected', 'false');
     });
-    btn.classList.add('active');
-    btn.setAttribute('aria-selected', 'true');
+    btn.classList.add('active'); btn.setAttribute('aria-selected', 'true');
     rootDoneFilter = btn.dataset.done;
+    renderRoots();
+  });
+});
+
+/* 기원 필터 */
+document.querySelectorAll('#page-roots [data-origin]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#page-roots [data-origin]').forEach(b => {
+      b.classList.remove('active'); b.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active'); btn.setAttribute('aria-selected', 'true');
+    rootOriginFlt = btn.dataset.origin;
     renderRoots();
   });
 });
@@ -2242,125 +2416,226 @@ document.getElementById('btnClearRootSearch').addEventListener('click', () => {
   document.getElementById('btnClearRootSearch').classList.remove('show');
   renderRoots();
 });
-document.getElementById('rootOriginFilter').addEventListener('change', function () {
-  rootOriginFlt = this.value;
-  renderRoots();
-});
 
 /* ════════════════════════════════════════════════════
-   AI로 어근 배치 불러오기
+   임베디드 어근 데이터 (Latin + Greek)
 ═══════════════════════════════════════════════════ */
-const ROOT_BATCHES = [
-  {
-    label: 'Latin 어근 (1/4)',
-    prompt:
-      'List exactly 25 of the most common Latin roots used in English vocabulary.\n' +
-      'Return ONLY this JSON, no markdown, no explanation:\n' +
-      '{"roots":[{"root":"port","origin":"Latin","meaning":"carry, bring","examples":["transport","export","import","portable","report"]}]}\n' +
-      'Rules: origin must be "Latin", meaning in English, examples are real English words.',
-  },
-  {
-    label: 'Latin 어근 (2/4)',
-    prompt:
-      'List exactly 25 more common Latin roots in English. Avoid: port, dict, rupt, script, struct, duct, aud, vis, spec, mit, pos, ten, tract, vert, fac, fer, jec, scrib, cred, mort, cap, grad, lect, pend, vert.\n' +
-      'Return ONLY this JSON, no markdown:\n' +
-      '{"roots":[{"root":"ped","origin":"Latin","meaning":"foot","examples":["pedestrian","pedal","expedite","impede"]}]}\n' +
-      'Rules: origin must be "Latin", meaning in English, examples are real English words.',
-  },
-  {
-    label: 'Greek 어근 (3/4)',
-    prompt:
-      'List exactly 25 of the most common Greek roots used in English vocabulary.\n' +
-      'Return ONLY this JSON, no markdown, no explanation:\n' +
-      '{"roots":[{"root":"graph","origin":"Greek","meaning":"write, draw","examples":["graphic","biography","photograph","paragraph"]}]}\n' +
-      'Rules: origin must be "Greek", meaning in English, examples are real English words.',
-  },
-  {
-    label: 'Greek 어근 (4/4)',
-    prompt:
-      'List exactly 25 more common Greek roots in English. Avoid: graph, log, phon, bio, geo, therm, chron, path, hydr, micro, tele, auto, anti, poly, mono, morph, scop, astro, cycl, dem, psych, derm, nom, onym, phob.\n' +
-      'Return ONLY this JSON, no markdown:\n' +
-      '{"roots":[{"root":"lysis","origin":"Greek","meaning":"loosening, breaking down","examples":["analysis","paralysis","electrolysis"]}]}\n' +
-      'Rules: origin must be "Greek", meaning in English, examples are real English words.',
-  },
+const EMBEDDED_ROOTS_DATA = [
+  // ── Latin ──────────────────────────────────────────
+  { root:'port',   origin:'Latin', meaning:'carry, bring',               variants:[],                               examples:['transport','export','import','portable','report'] },
+  { root:'dict',   origin:'Latin', meaning:'say, declare',               variants:['dic'],                          examples:['dictate','predict','contradict','verdict','diction'] },
+  { root:'rupt',   origin:'Latin', meaning:'break',                      variants:['rump'],                         examples:['rupture','corrupt','interrupt','erupt','disrupt','abrupt'] },
+  { root:'scrib',  origin:'Latin', meaning:'write',                      variants:['script'],                       examples:['describe','inscribe','prescribe','manuscript','transcript'] },
+  { root:'struct', origin:'Latin', meaning:'build, arrange',             variants:['stru'],                         examples:['structure','construct','instruct','obstruct','infrastructure','construe'] },
+  { root:'duct',   origin:'Latin', meaning:'lead',                       variants:['duc'],                          examples:['conduct','produce','reduce','educate','introduce'] },
+  { root:'aud',    origin:'Latin', meaning:'hear',                       variants:[],                               examples:['audio','audible','audience','auditorium','audition'] },
+  { root:'vis',    origin:'Latin', meaning:'see',                        variants:['vid'],                          examples:['vision','visible','video','provide','evident'] },
+  { root:'spec',   origin:'Latin', meaning:'look, see',                  variants:['spect','spic'],                 examples:['spectator','inspect','respect','perspective','conspicuous'] },
+  { root:'mit',    origin:'Latin', meaning:'send',                       variants:['miss'],                         examples:['permit','transmit','submit','mission','dismiss'] },
+  { root:'pos',    origin:'Latin', meaning:'place, put',                 variants:['pon'],                          examples:['position','deposit','compose','postpone','opponent'] },
+  { root:'ten',    origin:'Latin', meaning:'hold, keep',                 variants:['tain','tin'],                   examples:['contain','retain','obtain','maintain','continent'] },
+  { root:'tract',  origin:'Latin', meaning:'pull, draw',                 variants:['trac','trag'],                  examples:['attract','contract','extract','distract','tractor','trace','retrace'] },
+  { root:'vert',   origin:'Latin', meaning:'turn',                       variants:['vers'],                         examples:['convert','revert','divert','universe','version'] },
+  { root:'fac',    origin:'Latin', meaning:'make, do',                   variants:['fect','fic','feas','feat'],      examples:['factory','effect','efficient','benefit','artificial','feasible','feature'] },
+  { root:'fer',    origin:'Latin', meaning:'carry, bear',                variants:['lat'],                          examples:['transfer','prefer','differ','infer','reference','relate','translate'] },
+  { root:'ject',   origin:'Latin', meaning:'throw',                      variants:['jac','jact'],                   examples:['project','reject','inject','eject','subject','adjacent','ejaculate'] },
+  { root:'cred',   origin:'Latin', meaning:'believe, trust',             variants:[],                               examples:['credit','credible','incredible','credential','creed'] },
+  { root:'mort',   origin:'Latin', meaning:'death',                      variants:['mori','mors'],                  examples:['mortal','immortal','mortuary','mortgage','mortify','moribund'] },
+  { root:'cap',    origin:'Latin', meaning:'take, seize',                variants:['cept','cip'],                   examples:['capture','accept','except','concept','reception'] },
+  { root:'grad',   origin:'Latin', meaning:'step, walk',                 variants:['gress'],                        examples:['gradual','graduate','progress','aggression','congress'] },
+  { root:'lect',   origin:'Latin', meaning:'choose, gather, read',       variants:['lig'],                          examples:['select','elect','collect','intellect','eligible'] },
+  { root:'pend',   origin:'Latin', meaning:'hang, weigh, pay',           variants:['pens'],                         examples:['depend','suspend','pension','expenditure','compensate'] },
+  { root:'ped',    origin:'Latin', meaning:'foot',                       variants:[],                               examples:['pedestrian','pedal','expedition','impede','centipede'] },
+  { root:'man',    origin:'Latin', meaning:'hand',                       variants:['manu'],                         examples:['manual','manage','mandate','manufacture','manipulate'] },
+  { root:'voc',    origin:'Latin', meaning:'call, voice',                variants:['vok'],                          examples:['vocal','advocate','vocabulary','invoke','revoke'] },
+  { root:'nat',    origin:'Latin', meaning:'born, birth',                variants:['nasc','nai'],                   examples:['nature','national','innate','native','prenatal','nascent','renaissance'] },
+  { root:'nov',    origin:'Latin', meaning:'new',                        variants:[],                               examples:['novel','innovate','renovate','novice','novelty'] },
+  { root:'ann',    origin:'Latin', meaning:'year',                       variants:['enn'],                          examples:['annual','anniversary','perennial','millennium','centennial'] },
+  { root:'ven',    origin:'Latin', meaning:'come',                        variants:['vent'],                         examples:['event','prevent','intervene','convention','advent','invent','venture'] },
+  { root:'cur',    origin:'Latin', meaning:'run, flow',                  variants:['curs','curr'],                  examples:['occur','current','cursor','excursion','currency','recur','incur'] },
+  { root:'plic',   origin:'Latin', meaning:'fold, involve',              variants:['plex','ply','plicit','pli'],    examples:['complex','reply','imply','explicit','implicit','duplicate','simple','comply'] },
+  { root:'flu',    origin:'Latin', meaning:'flow',                       variants:['flux','fluct'],                 examples:['fluent','influence','fluctuate','affluent','influx','superfluous'] },
+  { root:'luc',    origin:'Latin', meaning:'light, shine',               variants:['lum','lust','lumin'],           examples:['lucid','illuminate','illustrate','luminous','luster','translucent'] },
+  { root:'equ',    origin:'Latin', meaning:'equal, fair',                variants:['equi'],                         examples:['equal','equality','equitable','equinox','equilibrium','adequate'] },
+  { root:'corp',   origin:'Latin', meaning:'body',                       variants:['corpor'],                       examples:['corpse','corporation','corporal','incorporate','corpus'] },
+  { root:'sol',    origin:'Latin', meaning:'alone; sun',                 variants:['soli','solv','solut'],          examples:['solo','solitary','solar','solitude','desolate','solve','solution'] },
+  { root:'sequ',   origin:'Latin', meaning:'follow',                     variants:['secut','seque','secu'],         examples:['sequence','consequence','subsequent','execute','sequel','persecution'] },
+  { root:'vol',    origin:'Latin', meaning:'will, wish',                 variants:['voli','volv','volut'],          examples:['volunteer','revolve','evolve','involve','revolution','involuntary'] },
+  { root:'sign',   origin:'Latin', meaning:'sign, mark',                 variants:['signi','signat'],               examples:['signal','signature','significant','design','resign','assign'] },
+  { root:'terr',   origin:'Latin', meaning:'earth, land',                variants:['terra'],                        examples:['territory','terrain','terrarium','Mediterranean','extraterrestrial'] },
+  { root:'aqua',   origin:'Latin', meaning:'water',                      variants:['aqu'],                          examples:['aquatic','aquarium','aqueduct','aquifer','subaqueous'] },
+  { root:'liber',  origin:'Latin', meaning:'free',                       variants:['libr','libert'],                examples:['liberty','liberal','liberate','deliver','deliberate'] },
+  { root:'temp',   origin:'Latin', meaning:'time',                       variants:['tempor'],                       examples:['temporary','contemporary','temporal','temper','temperature'] },
+  { root:'bene',   origin:'Latin', meaning:'well, good',                 variants:[],                               examples:['benefit','benefactor','benevolent','beneficial','beneficiary'] },
+  { root:'mal',    origin:'Latin', meaning:'bad, evil',                  variants:[],                               examples:['malice','malfunction','malevolent','malady','malnutrition'] },
+  { root:'inter',  origin:'Latin', meaning:'between, among',             variants:[],                               examples:['interrupt','intervene','international','interact','interval'] },
+  { root:'sub',    origin:'Latin', meaning:'under, below',               variants:['suf','suc','sup'],              examples:['submarine','subtract','subway','suffix','suffer'] },
+  { root:'super',  origin:'Latin', meaning:'above, over',                variants:[],                               examples:['supervise','superior','supernatural','supermarket','supersede'] },
+  { root:'trans',  origin:'Latin', meaning:'across, beyond',             variants:[],                               examples:['transport','transform','translate','transmit','transcend'] },
+  { root:'de',     origin:'Latin', meaning:'away, down, off',            variants:[],                               examples:['decrease','deport','define','depart','detach'] },
+  { root:'ex',     origin:'Latin', meaning:'out, from',                  variants:['e','ef'],                       examples:['exit','export','exhaust','eject','effect'] },
+  { root:'con',    origin:'Latin', meaning:'with, together',             variants:['com','co','col','cor'],          examples:['connect','compose','collect','correlate','cooperate'] },
+  { root:'ad',     origin:'Latin', meaning:'to, toward',                 variants:['ac','af','ag','an','ap','as','at'],          examples:['adapt','accept','affirm','aggravate','announce','appear','assemble'] },
+  { root:'pro',    origin:'Latin', meaning:'forward, for, before',       variants:[],                               examples:['progress','promote','protect','provide','project'] },
+  { root:'per',    origin:'Latin', meaning:'through, thoroughly',        variants:[],                               examples:['perform','permit','persist','perceive','permanent'] },
+  { root:'circum', origin:'Latin', meaning:'around',                     variants:[],                               examples:['circumference','circumstance','circumvent','circumscribe','circumnavigate'] },
+  { root:'contra', origin:'Latin', meaning:'against, opposite',          variants:['counter'],                      examples:['contradict','contrary','contrast','counteract','counterfeit'] },
+  { root:'multi',  origin:'Latin', meaning:'many, much',                 variants:[],                               examples:['multiply','multiple','multitude','multimedia','multitask'] },
+  { root:'uni',    origin:'Latin', meaning:'one, single',                variants:[],                               examples:['unite','uniform','universe','university','unique'] },
+  { root:'re',     origin:'Latin', meaning:'again, back',                variants:[],                               examples:['return','review','rebuild','react','remember'] },
+  { root:'pre',    origin:'Latin', meaning:'before, in front of',        variants:[],                               examples:['prevent','predict','prepare','prefix','preview'] },
+  { root:'ab',     origin:'Latin', meaning:'away from, off',             variants:['abs','a'],                      examples:['abnormal','absent','abstain','abstract','avert','avoid','abrupt'] },
+  { root:'in',     origin:'Latin', meaning:'not; into, within',          variants:['im','il','ir'],                 examples:['insert','inject','incorrect','incomplete','impossible','illegal','irregular'] },
+  { root:'ob',     origin:'Latin', meaning:'against, toward, over',      variants:['oc','of','op'],                 examples:['object','obstacle','obvious','occur','offer','oppose','obstruct'] },
+  { root:'dis',    origin:'Latin', meaning:'apart, away, not',           variants:['dif','di'],                     examples:['discover','dismiss','differ','disconnect','distribute','divide','disperse'] },
+  // ── Greek ──────────────────────────────────────────────────
+  { root:'graph',  origin:'Greek', meaning:'write, draw, record',        variants:['gram','gramm'],                 examples:['graphic','biography','photograph','paragraph','autograph','telegram','grammar','diagram'] },
+  { root:'log',    origin:'Greek', meaning:'word, reason, study',        variants:['logy'],                         examples:['logic','biology','psychology','dialogue','catalog'] },
+  { root:'phon',   origin:'Greek', meaning:'sound, voice',               variants:['phono','phone'],                examples:['phone','phonics','symphony','microphone','saxophone','phonology'] },
+  { root:'bio',    origin:'Greek', meaning:'life',                       variants:['bi'],                           examples:['biology','biography','biosphere','antibiotic','biopsy'] },
+  { root:'geo',    origin:'Greek', meaning:'earth',                      variants:[],                               examples:['geography','geology','geometry','geopolitics','geothermal'] },
+  { root:'therm',  origin:'Greek', meaning:'heat',                       variants:['thermo'],                       examples:['thermometer','thermal','thermostat','thermos','thermodynamics'] },
+  { root:'chron',  origin:'Greek', meaning:'time',                       variants:['chrono'],                       examples:['chronology','synchronize','chronic','chronicle','anachronism'] },
+  { root:'path',   origin:'Greek', meaning:'feeling, disease, suffering', variants:['pathy','patho'],               examples:['empathy','sympathy','pathology','apathy','antipathy','telepathy'] },
+  { root:'hydr',   origin:'Greek', meaning:'water',                      variants:['hydro'],                        examples:['hydrogen','hydraulic','hydrant','dehydrate','hydroelectric'] },
+  { root:'micro',  origin:'Greek', meaning:'small',                      variants:[],                               examples:['microscope','microphone','microwave','microchip','microbe'] },
+  { root:'tele',   origin:'Greek', meaning:'far, distant',               variants:[],                               examples:['telephone','television','telescope','telegraph','telepathy'] },
+  { root:'auto',   origin:'Greek', meaning:'self',                       variants:[],                               examples:['automobile','automatic','autobiography','autopilot','autonomous'] },
+  { root:'anti',   origin:'Greek', meaning:'against, opposite',          variants:['ant'],                          examples:['antibody','antibiotic','antidote','antithesis','antonym','antagonist'] },
+  { root:'poly',   origin:'Greek', meaning:'many',                       variants:[],                               examples:['polygon','polygamy','polyglot','polytechnic','polyester'] },
+  { root:'mono',   origin:'Greek', meaning:'one, single, alone',         variants:['mon'],                          examples:['monotone','monologue','monopoly','monotheism','monarch','monk'] },
+  { root:'morph',  origin:'Greek', meaning:'form, shape',                variants:['morpho'],                       examples:['morphology','amorphous','metamorphosis','morpheme','polymorphic'] },
+  { root:'scope',  origin:'Greek', meaning:'see, examine, observe',      variants:['scop'],                         examples:['microscope','telescope','horoscope','periscope','endoscope'] },
+  { root:'astro',  origin:'Greek', meaning:'star',                       variants:['aster'],                        examples:['astronomy','astronaut','asteroid','astrophysics','astrology'] },
+  { root:'cycl',   origin:'Greek', meaning:'circle, wheel',              variants:['cyclo'],                        examples:['bicycle','cyclone','recycle','encyclopedia','cyclical'] },
+  { root:'dem',    origin:'Greek', meaning:'people',                     variants:['demo'],                         examples:['democracy','epidemic','pandemic','demographic','demagogue'] },
+  { root:'psych',  origin:'Greek', meaning:'mind, soul',                 variants:['psycho'],                       examples:['psychology','psychiatry','psychic','psyche','psychopath'] },
+  { root:'derm',   origin:'Greek', meaning:'skin',                       variants:['derma','dermato'],              examples:['dermatology','hypodermic','epidermis','taxidermy','dermatitis'] },
+  { root:'onym',   origin:'Greek', meaning:'name, word',                 variants:['nym'],                          examples:['synonym','antonym','pseudonym','anonymous','acronym'] },
+  { root:'phob',   origin:'Greek', meaning:'fear',                       variants:['phobia'],                       examples:['phobia','claustrophobia','arachnophobia','xenophobia','hydrophobia'] },
+  { root:'arch',   origin:'Greek', meaning:'rule, chief, ancient',       variants:['archi','arche'],                examples:['monarchy','anarchy','patriarch','archbishop','archaeology','architect'] },
+  { root:'gen',    origin:'Greek', meaning:'birth, origin, kind',        variants:['gon','geny'],                   examples:['generate','genetics','hydrogen','oxygen','genesis','genealogy'] },
+  { root:'crat',   origin:'Greek', meaning:'rule, power',                variants:['cracy'],                        examples:['democracy','bureaucracy','aristocracy','plutocracy','autocrat'] },
+  { root:'phil',   origin:'Greek', meaning:'love',                       variants:['philo'],                        examples:['philosophy','philanthropy','philharmonic','bibliophile','Philadelphia'] },
+  { root:'soph',   origin:'Greek', meaning:'wisdom',                     variants:[],                               examples:['sophisticated','philosophy','sophistry','sophomore','sophist'] },
+  { root:'metr',   origin:'Greek', meaning:'measure',                    variants:['meter','metric'],               examples:['thermometer','kilometer','geometry','metric','diameter'] },
+  { root:'hypo',   origin:'Greek', meaning:'under, below',               variants:['hyp'],                          examples:['hypothesis','hypocrisy','hypothermia','hypocrite','hypodermic'] },
+  { root:'hyper',  origin:'Greek', meaning:'over, above, excessive',     variants:[],                               examples:['hyperactive','hyperbole','hypertension','hyperlink','hypersensitive'] },
+  { root:'syn',    origin:'Greek', meaning:'together, with, same',       variants:['sym','syl','sys','synt'],       examples:['synchronize','symphony','synonym','syllable','system','syntax'] },
+  { root:'para',   origin:'Greek', meaning:'beside, beyond, wrong',      variants:['par'],                          examples:['parallel','paragraph','paramedic','paradox','parasite'] },
+  { root:'meta',   origin:'Greek', meaning:'beyond, change, after',      variants:['met'],                          examples:['metabolism','metaphor','metamorphosis','method','metacognition'] },
+  { root:'epi',    origin:'Greek', meaning:'upon, over, among',          variants:['ep'],                           examples:['epidemic','epilogue','episode','epigraph','epitaph'] },
+  { root:'dia',    origin:'Greek', meaning:'through, across',            variants:[],                               examples:['dialogue','diameter','diagnosis','diagram','dialect'] },
+  { root:'eco',    origin:'Greek', meaning:'house, environment',         variants:[],                               examples:['ecology','economy','ecosystem','economics','ecosphere'] },
+  { root:'polis',  origin:'Greek', meaning:'city, citizen',              variants:[],                               examples:['politics','police','metropolis','cosmopolitan','acropolis'] },
+  { root:'cosm',   origin:'Greek', meaning:'universe, order, beauty',    variants:[],                               examples:['cosmos','cosmetic','cosmic','microcosm','cosmopolitan'] },
+  { root:'pyr',    origin:'Greek', meaning:'fire',                       variants:[],                               examples:['pyramid','pyrotechnics','pyre','pyromaniac','pyrite'] },
+  { root:'lith',   origin:'Greek', meaning:'stone',                      variants:[],                               examples:['monolith','lithosphere','Neolithic','lithography','megalith'] },
+  { root:'erg',    origin:'Greek', meaning:'work, energy',               variants:[],                               examples:['energy','synergy','ergonomics','allergy','lethargy'] },
+  { root:'top',    origin:'Greek', meaning:'place, location',            variants:[],                               examples:['topography','topology','topic','utopia','toponym'] },
+  { root:'zoo',    origin:'Greek', meaning:'animal',                     variants:[],                               examples:['zoology','zoo','protozoa','zodiac','zoomorphic'] },
+  { root:'xen',    origin:'Greek', meaning:'strange, foreign, guest',    variants:[],                               examples:['xenophobia','xenon','xenophile','xenograft'] },
+  { root:'lysis',  origin:'Greek', meaning:'loosening, breaking down',   variants:[],                               examples:['analysis','paralysis','electrolysis','catalysis','hydrolysis'] },
+  { root:'typ',    origin:'Greek', meaning:'type, impression, model',    variants:[],                               examples:['type','typical','prototype','archetype','typography'] },
+  { root:'crit',   origin:'Greek', meaning:'judge, decide',              variants:[],                               examples:['critic','criteria','critique','criterion','criticize'] },
+  // -- Suffixes / 접미사 -------------------------------------------------------
+  { root:'able',   origin:'Latin', meaning:'capable of, worthy of being', variants:['ible','abil','ibil','abilis','ail','ibili'],examples:['capable','readable','visible','possible','ability','stability','flexibility'] },
+  { root:'tion',   origin:'Latin', meaning:'act, state, result of',        variants:['sion','ation','ition'],         examples:['action','nation','vision','tension','education','solution','tradition'] },
+  { root:'ment',   origin:'Latin', meaning:'result, state, means of',      variants:[],                               examples:['movement','government','treatment','development','argument','achievement'] },
+  { root:'ous',    origin:'Latin', meaning:'having quality of, full of',   variants:['ious','eous','uous'],            examples:['famous','various','gorgeous','obvious','serious','continuous','ambitious'] },
+  { root:'al',     origin:'Latin', meaning:'relating to, pertaining to',   variants:['ial','ual','ical'],             examples:['formal','natural','social','special','visual','musical','political','annual'] },
+  { root:'ive',    origin:'Latin', meaning:'tending to, inclined to',      variants:['ative','itive'],                 examples:['active','creative','sensitive','positive','massive','cognitive','relative'] },
+  { root:'ance',   origin:'Latin', meaning:'state, quality, process of',   variants:['ence','ancy','ency'],            examples:['balance','distance','sentence','difference','importance','preference','tendency'] },
+  { root:'fy',     origin:'Latin', meaning:'to make, to cause to be',      variants:['ify'],                          examples:['modify','justify','clarify','identify','simplify','magnify','notify'] },
+  { root:'ize',    origin:'Greek', meaning:'to make, to become, to treat', variants:['ise'],                          examples:['organize','realize','modernize','emphasize','recognize','symbolize','analyze'] },
+  { root:'er',     origin:'Latin', meaning:'one who, agent of action',     variants:['or','ar'],                      examples:['teacher','writer','actor','director','scholar','governor','creator'] },
+  { root:'ist',    origin:'Greek', meaning:'one who practices or believes', variants:['ism'],                         examples:['artist','scientist','journalist','tourism','realism','capitalism','idealism'] },
 ];
 
-document.getElementById('btnFetchRoots').addEventListener('click', async () => {
-  if (fetchRootsBusy) return;
-  fetchRootsBusy = true;
-  fetchRootsCtrl = new AbortController();
-  const { signal } = fetchRootsCtrl;
+function seedEmbeddedRoots() {
+  // 모든 형태(primary + variants) → 대표 데이터 매핑
+  const formToPrimary = new Map();
+  for (const data of EMBEDDED_ROOTS_DATA) {
+    formToPrimary.set(data.root.toLowerCase(), data);
+    for (const v of (data.variants || [])) formToPrimary.set(v.toLowerCase(), data);
+  }
 
-  const bar    = document.getElementById('rootsFetchBar');
-  const info   = document.getElementById('rootsFetchInfo');
-  const status = document.getElementById('rootsFetchStatus');
-  const btnFetch = document.getElementById('btnFetchRoots');
-  bar.style.display = 'flex';
-  btnFetch.disabled = true;
+  // Pass 1: localStorage에 변형 형태로 따로 저장된 항목 → 대표 어근에 흡수
+  const toRemove = new Set();
+  for (const existingRoot of roots) {
+    const key = existingRoot.root.toLowerCase();
+    const embData = formToPrimary.get(key);
+    if (!embData || embData.root.toLowerCase() === key) continue;
+    const primary = roots.find(r => r.root.toLowerCase() === embData.root.toLowerCase());
+    if (!primary || primary.id === existingRoot.id) continue;
+    for (const ex of existingRoot.examples)
+      if (!primary.examples.includes(ex)) primary.examples.push(ex);
+    primary.exampleMeanings = { ...(existingRoot.exampleMeanings || {}), ...(primary.exampleMeanings || {}) };
+    if (!(primary.variants || []).map(v => v.toLowerCase()).includes(key))
+      primary.variants = [...(primary.variants || []), existingRoot.root];
+    toRemove.add(existingRoot.id);
+  }
+  if (toRemove.size) roots = roots.filter(r => !toRemove.has(r.id));
 
-  let totalAdded = 0;
-  try {
-    for (let i = 0; i < ROOT_BATCHES.length; i++) {
-      if (signal.aborted) break;
-      const batch = ROOT_BATCHES[i];
-      info.textContent   = `${batch.label} 불러오는 중...`;
-      status.textContent = '';
+  // Pass 2: 아직 없는 어근 추가 + 기존 대표 어근에 누락된 variants 보충
+  // + 대표 어근이 이미 존재하더라도 별도 카드로 남은 변형 형태 흡수
+  const existingByKey = new Map(roots.map(r => [r.root.toLowerCase(), r]));
+  const toRemove2 = new Set();
+  let changed = toRemove.size > 0;
 
-      let result = null;
-      for (const model of LOOKUP_MODELS) {
-        if (signal.aborted) break;
-        try {
-          result = await callOpenRouter(batch.prompt, 2500, model, signal);
-          break;
-        } catch (e) {
-          if (e.name === 'AbortError') break;
-          console.warn(`[fetchRoots] ${model} 실패:`, e.message);
+  for (const data of EMBEDDED_ROOTS_DATA) {
+    const key = data.root.toLowerCase();
+    const existing = existingByKey.get(key);
+    if (existing) {
+      // 누락 variant 이름 보충 + 별도 카드로 남은 variant 흡수
+      const curVars = new Set((existing.variants || []).map(v => v.toLowerCase()));
+      for (const v of (data.variants || [])) {
+        if (!curVars.has(v.toLowerCase())) {
+          existing.variants = [...(existing.variants || []), v];
+          changed = true;
+        }
+        const varEntry = existingByKey.get(v.toLowerCase());
+        if (varEntry && varEntry.id !== existing.id) {
+          for (const ex of varEntry.examples)
+            if (!existing.examples.includes(ex)) existing.examples.push(ex);
+          existing.exampleMeanings = { ...(varEntry.exampleMeanings || {}), ...(existing.exampleMeanings || {}) };
+          toRemove2.add(varEntry.id);
+          existingByKey.delete(v.toLowerCase());
+          changed = true;
         }
       }
-
-      if (result?.roots && Array.isArray(result.roots)) {
-        const existing = new Set(roots.map(r => r.root.toLowerCase()));
-        const newRoots = result.roots
-          .filter(r => r.root && r.meaning)
-          .filter(r => !existing.has(r.root.toLowerCase()))
-          .map(r => ({
-            id: crypto.randomUUID(),
-            root: r.root,
-            origin: r.origin || 'Latin',
-            meaning: r.meaning,
-            variants: [],
-            examples: Array.isArray(r.examples) ? r.examples : [],
-            exampleMeanings: {}, done: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          }));
-        roots = [...roots, ...newRoots];
-        totalAdded += newRoots.length;
-        saveRootsLocal();
-        status.textContent = `${newRoots.length}개 추가 (누계 ${totalAdded}개)`;
-        if (currentPage === 'roots') renderRoots();
+    } else {
+      const coveredAsVariant = [...existingByKey.values()].some(r =>
+        (r.variants || []).map(v => v.toLowerCase()).includes(key)
+      );
+      if (coveredAsVariant) continue;
+      const newRoot = {
+        id: crypto.randomUUID(),
+        root: data.root, origin: data.origin, meaning: data.meaning,
+        variants: [...(data.variants || [])], examples: [...(data.examples || [])],
+        exampleMeanings: {}, done: false,
+        createdAt: Date.now(), updatedAt: Date.now(),
+      };
+      const absorbIds = new Set();
+      for (const v of (data.variants || [])) {
+        const varEntry = existingByKey.get(v.toLowerCase());
+        if (!varEntry) continue;
+        for (const ex of varEntry.examples)
+          if (!newRoot.examples.includes(ex)) newRoot.examples.push(ex);
+        Object.assign(newRoot.exampleMeanings, varEntry.exampleMeanings || {});
+        absorbIds.add(varEntry.id);
+        existingByKey.delete(v.toLowerCase());
       }
+      if (absorbIds.size) roots = roots.filter(r => !absorbIds.has(r.id));
+      roots.push(newRoot);
+      existingByKey.set(key, newRoot);
+      changed = true;
     }
-    info.textContent   = signal.aborted
-      ? `중단됨 — 총 ${totalAdded}개 추가됨`
-      : `완료! 총 ${totalAdded}개의 어근을 추가했습니다.`;
-    status.textContent = '';
-    setTimeout(() => { bar.style.display = 'none'; }, 3000);
-  } catch (e) {
-    info.textContent = '불러오기 오류: ' + e.message;
-    setTimeout(() => { bar.style.display = 'none'; }, 4000);
-  } finally {
-    fetchRootsBusy = false;
-    fetchRootsCtrl = null;
-    btnFetch.disabled = false;
   }
-});
 
-document.getElementById('btnStopFetch').addEventListener('click', () => {
-  if (fetchRootsCtrl) { fetchRootsCtrl.abort(); fetchRootsCtrl = null; }
-  fetchRootsBusy = false;
-  document.getElementById('btnFetchRoots').disabled = false;
-});
+  if (toRemove2.size) roots = roots.filter(r => !toRemove2.has(r.id));
+  if (changed) saveRootsLocal();
+}
 
 /* ════════════════════════════════════════════════════
    어근 초기화
@@ -2379,6 +2654,7 @@ document.getElementById('btnJumpRootBookmark').addEventListener('click', () => {
 });
 
 roots = loadRootsLocal();
+seedEmbeddedRoots();
 deduplicateRoots();
 </script>
 </body>
