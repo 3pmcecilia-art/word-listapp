@@ -372,6 +372,34 @@
     }
     .roots-header-actions { display: flex; gap: var(--sp-xs); flex-wrap: wrap; align-items: center; }
     #btnRootReorder.active { background: var(--c-primary-light); color: var(--c-primary); font-weight: var(--fw-semibold); }
+    #btnRootMerge.active   { background: #fef3c7; color: #92400e; font-weight: var(--fw-semibold); }
+
+    /* 병합 모드 */
+    .root-card.merge-selectable { cursor: pointer; }
+    .root-card.merge-selectable:hover { border-color: var(--c-warning); box-shadow: 0 0 0 2px #fde68a; }
+    .root-card.merge-selected   { border-color: var(--c-warning) !important; box-shadow: 0 0 0 3px #fde68a !important; background: #fffbeb; }
+    .merge-bar {
+      display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1e293b; color: #fff; border-radius: var(--r-full);
+      padding: 10px 20px; gap: 14px; align-items: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25); z-index: 999; white-space: nowrap;
+    }
+    .merge-bar.show { display: flex; }
+    .merge-bar-label { font-size: var(--fs-sm); }
+    .merge-bar-label em { color: #fde68a; font-style: normal; font-weight: var(--fw-bold); }
+    .btn-merge-exec {
+      background: var(--c-warning); color: #fff; border: none;
+      border-radius: var(--r-full); padding: 6px 16px;
+      font-size: var(--fs-sm); font-weight: var(--fw-semibold);
+      cursor: pointer; transition: background var(--trans);
+    }
+    .btn-merge-exec:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-merge-exec:not(:disabled):hover { background: #d97706; }
+    .btn-merge-cancel-bar {
+      background: transparent; color: #94a3b8; border: none;
+      font-size: var(--fs-sm); cursor: pointer; padding: 4px 8px; border-radius: var(--r-full);
+    }
+    .btn-merge-cancel-bar:hover { color: #fff; }
 
     .add-root-form {
       background: var(--c-surface); border: 1px solid var(--c-border);
@@ -645,6 +673,7 @@
         <div class="roots-header-actions">
           <button class="btn btn-ghost btn-sm" id="btnSyncWords">🔄 단어장 동기화</button>
           <button class="btn btn-ghost btn-sm" id="btnRootReorder">⠿ 순서 편집</button>
+          <button class="btn btn-ghost btn-sm" id="btnRootMerge">🔗 병합</button>
           <button class="btn btn-ghost btn-sm" id="btnAddRoot">+ 어근 추가</button>
         </div>
       </div>
@@ -1812,6 +1841,8 @@ let rootSearchQuery = '';
 let rootOriginFlt   = 'all';
 let rootDoneFilter  = 'all';
 let rootManualMode  = localStorage.getItem('wordbook_root_manual') === 'true';
+let mergeMode = false;
+let mergeSelected = new Set();
 let rootSortable    = null;
 
 function initRootSortable() {
@@ -2099,6 +2130,13 @@ function renderRoots() {
     return sep + rootCardHTML(r);
   }).join('');
   list.forEach(r => bindRootCard(r.id));
+  if (mergeMode) {
+    rootsList.querySelectorAll('.root-card').forEach(card => {
+      card.classList.add('merge-selectable');
+      const rid = card.dataset.rid;
+      if (mergeSelected.has(rid)) card.classList.add('merge-selected');
+    });
+  }
   const jumpR = document.getElementById('btnJumpRootBookmark');
   if (jumpR) jumpR.style.display = rootBookmarkId && roots.some(r => r.id === rootBookmarkId) ? '' : 'none';
 
@@ -2120,7 +2158,21 @@ function bindRootCard(id) {
   const card = rootsList.querySelector(`[data-rid="${id}"]`);
   if (!card) return;
 
+  card.addEventListener('click', e => {
+    if (!mergeMode) return;
+    if (e.target.closest('input, button, select, textarea')) return;
+    if (mergeSelected.has(id)) {
+      mergeSelected.delete(id);
+      card.classList.remove('merge-selected');
+    } else if (mergeSelected.size < 2) {
+      mergeSelected.add(id);
+      card.classList.add('merge-selected');
+    }
+    updateMergeBar();
+  });
+
   card.querySelector('.root-chk').addEventListener('change', e => {
+    if (mergeMode) { e.preventDefault(); return; }
     const r = roots.find(r => r.id === id);
     if (!r) return;
     r.done = e.target.checked;
@@ -2309,6 +2361,68 @@ document.getElementById('btnRootReorder').addEventListener('click', () => {
   localStorage.setItem('wordbook_root_manual', rootManualMode);
   renderRoots();
 });
+
+/* ── 병합 모드 ─────────────────────────────────────── */
+function enterMergeMode() {
+  mergeMode = true;
+  mergeSelected.clear();
+  document.getElementById('btnRootMerge').classList.add('active');
+  document.getElementById('mergeBar').classList.add('show');
+  updateMergeBar();
+  renderRoots();
+}
+
+function exitMergeMode() {
+  mergeMode = false;
+  mergeSelected.clear();
+  document.getElementById('btnRootMerge').classList.remove('active');
+  document.getElementById('mergeBar').classList.remove('show');
+  renderRoots();
+}
+
+function updateMergeBar() {
+  const cnt = mergeSelected.size;
+  document.getElementById('mergeCount').textContent = cnt;
+  document.getElementById('btnMergeExec').disabled = cnt !== 2;
+}
+
+function executeMerge() {
+  const [id1, id2] = [...mergeSelected];
+  const r1 = roots.find(r => r.id === id1);
+  const r2 = roots.find(r => r.id === id2);
+  if (!r1 || !r2) return;
+
+  const merged = {
+    id: r1.id,
+    root: r1.root,
+    meaning: r1.meaning === r2.meaning
+      ? r1.meaning
+      : [r1.meaning, r2.meaning].filter(Boolean).join(' / '),
+    origin: r1.origin || r2.origin,
+    variants: [...new Set([...(r1.variants||[]), ...(r2.variants||[])])],
+    examples: [...new Set([...r1.examples, ...r2.examples])],
+    exampleMeanings: Object.assign({}, r2.exampleMeanings || {}, r1.exampleMeanings || {}),
+    done: r1.done || r2.done,
+    createdAt: Math.min(r1.createdAt, r2.createdAt),
+    updatedAt: Date.now(),
+  };
+
+  const preview =
+    `어근: ${merged.root}\n뜻: ${merged.meaning}\n변형: ${merged.variants.join(', ') || '없음'}\n예시: ${merged.examples.join(', ') || '없음'}`;
+
+  if (!confirm(`아래 내용으로 병합할까요?\n\n${preview}\n\n(「${r2.root}」 카드는 삭제됩니다)`)) return;
+
+  roots = roots.map(r => r.id === id1 ? merged : r).filter(r => r.id !== id2);
+  saveRootsLocal();
+  exitMergeMode();
+  scheduleAutoFill();
+}
+
+document.getElementById('btnRootMerge').addEventListener('click', () => {
+  mergeMode ? exitMergeMode() : enterMergeMode();
+});
+document.getElementById('btnMergeExec').addEventListener('click', executeMerge);
+document.getElementById('btnMergeCancelBar').addEventListener('click', exitMergeMode);
 
 document.getElementById('btnSyncWords').addEventListener('click', () => {
   const added = syncRootsFromWords();
@@ -2667,5 +2781,12 @@ roots = loadRootsLocal();
 seedEmbeddedRoots();
 deduplicateRoots();
 </script>
+
+<!-- 병합 플로팅 바 -->
+<div class="merge-bar" id="mergeBar">
+  <span class="merge-bar-label">카드 선택: <em id="mergeCount">0</em> / 2</span>
+  <button class="btn-merge-exec" id="btnMergeExec" disabled>병합 실행</button>
+  <button class="btn-merge-cancel-bar" id="btnMergeCancelBar">✕ 취소</button>
+</div>
 </body>
 </html>
