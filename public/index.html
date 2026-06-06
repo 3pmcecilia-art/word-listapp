@@ -488,12 +488,22 @@
       .wrap         { padding: var(--sp-md) var(--sp-sm); }
       .app-title    { font-size: var(--fs-2xl); }
       .card         { padding: var(--sp-md); }
+      .card-cols    { flex-direction: column; align-items: flex-start; gap: 4px; }
       .card-word    {
-        font-size: var(--fs-lg);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        max-width: 48%;
+        font-size: var(--fs-base);
+        max-width: 100%;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1.5px solid var(--c-border);
+        padding-right: 0;
+        padding-bottom: 4px;
+        word-break: break-word;
+        overflow-wrap: anywhere;
       }
-      .card-meaning { font-size: var(--fs-sm); }
+      .card-meaning {
+        font-size: var(--fs-sm);
+        padding-left: 0;
+      }
 
       .add-form     { padding: var(--sp-md); }
       .form-two-col { grid-template-columns: 1fr; }
