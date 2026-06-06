@@ -752,6 +752,13 @@
 
 </div>
 
+<!-- 병합 플로팅 바 -->
+<div class="merge-bar" id="mergeBar">
+  <span class="merge-bar-label">카드 선택: <em id="mergeCount">0</em> / 2</span>
+  <button class="btn-merge-exec" id="btnMergeExec" disabled>병합 실행</button>
+  <button class="btn-merge-cancel-bar" id="btnMergeCancelBar">✕ 취소</button>
+</div>
+
 <script>
 /* ════════════════════════════════════════════════════
    데이터 유틸
@@ -2781,12 +2788,5 @@ roots = loadRootsLocal();
 seedEmbeddedRoots();
 deduplicateRoots();
 </script>
-
-<!-- 병합 플로팅 바 -->
-<div class="merge-bar" id="mergeBar">
-  <span class="merge-bar-label">카드 선택: <em id="mergeCount">0</em> / 2</span>
-  <button class="btn-merge-exec" id="btnMergeExec" disabled>병합 실행</button>
-  <button class="btn-merge-cancel-bar" id="btnMergeCancelBar">✕ 취소</button>
-</div>
 </body>
 </html>
